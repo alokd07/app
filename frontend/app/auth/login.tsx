@@ -36,28 +36,30 @@ export default function LoginScreen() {
       return;
     }
 
-    setLoading(true);
+    // setLoading(true);
     try {
-      const response = await apiClient.post(API_CONFIG.ENDPOINTS.SEND_OTP, {
-        phone: `+91${phone}`,
-      });
+      // const response = await apiClient.post(API_CONFIG.ENDPOINTS.SEND_OTP, {
+      //   phone: `+91${phone}`,
+      // });
+
+      router.replace('/(tabs)/home');
 
       // Only navigate after successful API response
-      if (response.data && (response.data.success || response.status === 200)) {
-        Alert.alert('Success', 'OTP sent to your WhatsApp', [
-          {
-            text: 'OK',
-            onPress: () => {
-              router.push({
-                pathname: 'auth/whatsapp/send-otp',
-                params: { phone: `+91${phone}` },
-              });
-            },
-          },
-        ]);
-      } else {
-        throw new Error('Failed to send OTP');
-      }
+      // if (response.data && (response.data.success || response.status === 200)) {
+      //   Alert.alert('Success', 'OTP sent to your WhatsApp', [
+      //     {
+      //       text: 'OK',
+      //       onPress: () => {
+      //         router.push({
+      //           pathname: 'auth/whatsapp/send-otp',
+      //           params: { phone: `+91${phone}` },
+      //         });
+      //       },
+      //     },
+      //   ]);
+      // } else {
+      //   throw new Error('Failed to send OTP');
+      // }
     } catch (error: any) {
       console.error('OTP Send Error:', error);
       Alert.alert(
