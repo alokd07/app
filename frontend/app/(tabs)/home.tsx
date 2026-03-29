@@ -95,6 +95,7 @@ export default function HomeScreen() {
     <TouchableOpacity
       style={styles.card}
       onPress={() => router.push(`/teacher/${item._id}`)}
+      activeOpacity={0.7}
     >
       <View style={styles.cardContent}>
         <View style={styles.imageContainer}>
@@ -105,37 +106,57 @@ export default function HomeScreen() {
               <Ionicons name="person" size={40} color={colors.gray[400]} />
             </View>
           )}
+          <View style={styles.verifiedBadge}>
+            <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+          </View>
         </View>
         
         <View style={styles.info}>
-          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
           
           <View style={styles.subjects}>
             {item.subjects.slice(0, 2).map((subject, index) => (
               <View key={index} style={styles.subjectBadge}>
-                <Text style={styles.subjectText}>{subject}</Text>
+                <Text style={styles.subjectText} numberOfLines={1}>{subject}</Text>
               </View>
             ))}
+            {item.subjects.length > 2 && (
+              <View style={styles.moreSubjects}>
+                <Text style={styles.moreText}>+{item.subjects.length - 2}</Text>
+              </View>
+            )}
           </View>
           
           <View style={styles.meta}>
             <View style={styles.rating}>
               <Ionicons name="star" size={16} color={colors.warning} />
               <Text style={styles.ratingText}>
-                {item.rating.toFixed(1)} ({item.totalReviews})
+                {item.rating.toFixed(1)}
               </Text>
+              <Text style={styles.reviewCount}>({item.totalReviews})</Text>
             </View>
-            <Text style={styles.price}>{formatCurrency(item.pricePerHour)}/hr</Text>
+            <View style={styles.priceContainer}>
+              <Text style={styles.price}>{formatCurrency(item.pricePerHour)}</Text>
+              <Text style={styles.priceLabel}>/hr</Text>
+            </View>
           </View>
         </View>
       </View>
       
-      <TouchableOpacity
-        style={styles.viewButton}
-        onPress={() => router.push(`/teacher/${item._id}`)}
-      >
-        <Text style={styles.viewButtonText}>View Profile</Text>
-      </TouchableOpacity>
+      <View style={styles.cardFooter}>
+        <View style={styles.expBadge}>
+          <Ionicons name="ribbon" size={14} color={colors.primary} />
+          <Text style={styles.expText}>{item.experienceYears || 0}+ years</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.viewButton}
+          onPress={() => router.push(`/teacher/${item._id}`)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.viewButtonText}>View Profile</Text>
+          <Ionicons name="arrow-forward" size={16} color={colors.white} />
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 
@@ -210,63 +231,83 @@ const styles = StyleSheet.create({
   searchContainer: {
     backgroundColor: colors.white,
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.gray[100],
-    borderRadius: 12,
+    backgroundColor: colors.gray[50],
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    borderWidth: 2,
+    borderColor: colors.gray[100],
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 12,
     fontSize: 16,
     color: colors.gray[900],
+    fontWeight: '500',
   },
   list: {
     padding: 16,
+    paddingTop: 20,
   },
   card: {
     backgroundColor: colors.white,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 12,
+    elevation: 4,
   },
   cardContent: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   imageContainer: {
     marginRight: 16,
+    position: 'relative',
   },
   image: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
+    width: 90,
+    height: 90,
+    borderRadius: 16,
   },
   imagePlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: colors.gray[200],
+    width: 90,
+    height: 90,
+    borderRadius: 16,
+    backgroundColor: colors.gray[100],
     justifyContent: 'center',
     alignItems: 'center',
   },
+  verifiedBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 2,
+  },
   info: {
     flex: 1,
+    justifyContent: 'space-between',
   },
   name: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.gray[900],
     marginBottom: 8,
   },
@@ -274,19 +315,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: 8,
+    gap: 6,
   },
   subjectBadge: {
-    backgroundColor: colors.primary + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginRight: 4,
-    marginBottom: 4,
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   subjectText: {
     fontSize: 12,
     color: colors.primary,
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  moreSubjects: {
+    backgroundColor: colors.gray[100],
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  moreText: {
+    fontSize: 12,
+    color: colors.gray[600],
+    fontWeight: '600',
   },
   meta: {
     flexDirection: 'row',
@@ -296,22 +347,68 @@ const styles = StyleSheet.create({
   rating: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
   ratingText: {
     fontSize: 14,
-    color: colors.gray[600],
-    marginLeft: 4,
+    color: colors.gray[900],
+    fontWeight: '600',
+  },
+  reviewCount: {
+    fontSize: 13,
+    color: colors.gray[500],
+    marginLeft: 2,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
   },
   price: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.primary,
   },
-  viewButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    borderRadius: 8,
+  priceLabel: {
+    fontSize: 12,
+    color: colors.gray[600],
+    fontWeight: '500',
+    marginLeft: 2,
+  },
+  cardFooter: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[100],
+  },
+  expBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.gray[50],
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  expText: {
+    fontSize: 12,
+    color: colors.gray[700],
+    fontWeight: '600',
+  },
+  viewButton: {
+    flexDirection: 'row',
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   viewButtonText: {
     color: colors.white,
@@ -321,11 +418,11 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 64,
+    paddingVertical: 80,
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.gray[900],
     marginTop: 16,
   },
@@ -335,7 +432,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   footer: {
-    paddingVertical: 16,
+    paddingVertical: 20,
     alignItems: 'center',
   },
 });

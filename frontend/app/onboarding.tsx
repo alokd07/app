@@ -7,8 +7,10 @@ import {
   Dimensions,
   TouchableOpacity,
   ViewToken,
+  Animated,
 } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../src/theme/colors';
 
 const { width } = Dimensions.get('window');
@@ -18,32 +20,45 @@ interface OnboardingSlide {
   title: string;
   description: string;
   icon: string;
+  color: string;
 }
 
 const slides: OnboardingSlide[] = [
   {
     id: '1',
     title: 'Find Best Teachers',
-    description: 'Browse and search from a wide range of qualified teachers across subjects',
-    icon: '🔍',
+    description: 'Browse and search from a wide range of qualified teachers across all subjects',
+    icon: 'search',
+    color: colors.primary,
   },
   {
     id: '2',
     title: 'Book Sessions Easily',
-    description: 'Select available time slots and book sessions in just a few taps',
-    icon: '📅',
+    description: 'Select available time slots and book your learning sessions in just a few taps',
+    icon: 'calendar',
+    color: colors.success,
   },
   {
     id: '3',
     title: 'Learn & Grow',
-    description: 'Attend online or offline sessions and achieve your learning goals',
-    icon: '🎯',
+    description: 'Attend online or offline sessions and achieve your learning goals with expert guidance',
+    icon: 'trending-up',
+    color: colors.warning,
   },
 ];
 
 export default function OnboardingScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
+  const [fadeAnim] = useState(new Animated.Value(0));
+
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (viewableItems.length > 0) {
@@ -69,8 +84,8 @@ export default function OnboardingScreen() {
 
   const renderSlide = ({ item }: { item: OnboardingSlide }) => (
     <View style={styles.slide}>
-      <View style={styles.iconContainer}>
-        <Text style={styles.icon}>{item.icon}</Text>
+      <View style={[styles.iconContainer, { backgroundColor: item.color + '15' }]}>
+        <Ionicons name={item.icon as any} size={80} color={item.color} />
       </View>
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.description}>{item.description}</Text>
@@ -78,8 +93,8 @@ export default function OnboardingScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <TouchableOpacity style={styles.skipButton} onPress={handleSkip} activeOpacity={0.7}>
         <Text style={styles.skipText}>Skip</Text>
       </TouchableOpacity>
 
@@ -108,13 +123,22 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+        <TouchableOpacity 
+          style={styles.nextButton} 
+          onPress={handleNext}
+          activeOpacity={0.8}
+        >
           <Text style={styles.nextText}>
             {currentIndex === slides.length - 1 ? 'Get Started' : 'Next'}
           </Text>
+          <Ionicons 
+            name={currentIndex === slides.length - 1 ? 'checkmark' : 'arrow-forward'} 
+            size={22} 
+            color={colors.white} 
+          />
         </TouchableOpacity>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -126,13 +150,16 @@ const styles = StyleSheet.create({
   skipButton: {
     position: 'absolute',
     top: 50,
-    right: 20,
+    right: 24,
     zIndex: 10,
-    padding: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: colors.gray[100],
+    borderRadius: 20,
   },
   skipText: {
-    fontSize: 16,
-    color: colors.primary,
+    fontSize: 15,
+    color: colors.gray[700],
     fontWeight: '600',
   },
   slide: {
@@ -143,62 +170,72 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   iconContainer: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: colors.gray[100],
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 32,
-  },
-  icon: {
-    fontSize: 80,
+    marginBottom: 48,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     color: colors.gray[900],
-    marginBottom: 16,
+    marginBottom: 20,
     textAlign: 'center',
   },
   description: {
     fontSize: 16,
     color: colors.gray[600],
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 26,
+    paddingHorizontal: 10,
   },
   footer: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingBottom: 48,
   },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 32,
   },
   dot: {
-    width: 8,
     height: 8,
     borderRadius: 4,
     marginHorizontal: 4,
   },
   dotActive: {
     backgroundColor: colors.primary,
-    width: 24,
+    width: 32,
   },
   dotInactive: {
     backgroundColor: colors.gray[300],
+    width: 8,
   },
   nextButton: {
+    flexDirection: 'row',
     backgroundColor: colors.primary,
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 18,
+    borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   nextText: {
     color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
   },
 });
