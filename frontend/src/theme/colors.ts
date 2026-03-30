@@ -33,3 +33,60 @@ export const colors = {
     900: '#09191F',
   },
 };
+
+export const fonts = {
+  regular: 'Manrope_400Regular',
+  medium: 'Manrope_500Medium',
+  semiBold: 'Manrope_600SemiBold',
+  bold: 'Manrope_700Bold',
+  extraBold: 'Manrope_800ExtraBold',
+};
+
+// Typography scale with Manrope
+export const typography = {
+  h1: {
+    fontFamily: fonts.bold,
+    fontSize: 32,
+    lineHeight: 40,
+  },
+  h2: {
+    fontFamily: fonts.bold,
+    fontSize: 28,
+    lineHeight: 36,
+  },
+  h3: {
+    fontFamily: fonts.semiBold,
+    fontSize: 24,
+    lineHeight: 32,
+  },
+  h4: {
+    fontFamily: fonts.semiBold,
+    fontSize: 20,
+    lineHeight: 28,
+  },
+  h5: {
+    fontFamily: fonts.semiBold,
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  body1: {
+    fontFamily: fonts.regular,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  body2: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  caption: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  button: {
+    fontFamily: fonts.semiBold,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+};

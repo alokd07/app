@@ -1,7 +1,26 @@
+import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
+import { View, ActivityIndicator } from 'react-native';
+import { useFonts, Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import { colors } from '../src/theme/colors';
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.white }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <Stack
       screenOptions={{
@@ -11,6 +30,7 @@ export default function RootLayout() {
         headerTintColor: colors.white,
         headerTitleStyle: {
           fontWeight: 'bold',
+          fontFamily: 'Manrope_700Bold',
         },
       }}
     >

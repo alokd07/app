@@ -165,6 +165,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
+    fontFamily: 'Manrope_700Bold',
     color: colors.gray[900],
     textAlign: 'center',
     marginBottom: 16,
@@ -172,6 +173,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 16,
+    fontFamily: 'Manrope_400Regular',
     color: colors.gray[600],
     textAlign: 'center',
     lineHeight: 24,
@@ -209,13 +211,13 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: 16,
+    fontFamily: 'Manrope_500Medium',
     color: colors.gray[600],
-    fontWeight: '500',
   },
   nextText: {
     fontSize: 16,
+    fontFamily: 'Manrope_600SemiBold',
     color: colors.primary,
-    fontWeight: '600',
   },
   homeIndicator: {
     position: 'absolute',
