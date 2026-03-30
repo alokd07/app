@@ -1,20 +1,15 @@
-// ─── Primary Palette (Navy + Gold Premium Theme) ─────────────────────────────
+// ─── LearnCraft Theme (Teal/Green Learning Platform) ──────────────────────────
 export const colors = {
-  // Primary colors
-  primary: '#E8A838',        // Gold
-  primaryDark: '#D4922A',    // Dark gold
-  primaryLight: '#F2C26A',   // Light gold
-  
-  // Navy shades
-  navy: '#0D1B2A',
-  navyMid: '#112236',
-  navyLight: '#1A3050',
+  // Primary teal/green
+  primary: '#5A9B8E',
+  primaryDark: '#4A8A7D',
+  primaryLight: '#6AABA0',
   
   // Neutrals
   white: '#FFFFFF',
   black: '#000000',
-  cream: '#FAF7F2',
-  ink: '#0D1B2A',
+  background: '#F8F9FA',
+  surface: '#FFFFFF',
   
   gray: {
     50: '#F8F9FA',
@@ -30,33 +25,27 @@ export const colors = {
   },
   
   // Semantic colors
-  success: '#27AE60',
-  error: '#E05252',
-  warning: '#F59E0B',
-  info: '#3B82F6',
+  success: '#28A745',
+  error: '#DC3545',
+  warning: '#FFC107',
+  info: '#17A2B8',
   
   // Additional
-  muted: '#8A9BB0',
-  border: '#D9E2EE',
-  inputBg: '#F4F7FB',
-  goldPale: '#FDF3DC',
+  text: {
+    primary: '#212529',
+    secondary: '#6C757D',
+    disabled: '#ADB5BD',
+    hint: '#868E96',
+  },
   
-  // Legacy teal (for gradual migration)
-  teal: {
-    50: '#F0F9F7',
-    100: '#D1F0E8',
-    200: '#A3E1D1',
-    300: '#75D2BA',
-    400: '#47C3A3',
-    500: '#2D7A6B',
-    600: '#246158',
-    700: '#1B4945',
-    800: '#123132',
-    900: '#09191F',
+  // Badge colors
+  badge: {
+    linguist: '#E3F2FD',
+    linguistText: '#1976D2',
   },
 };
 
-// ─── Typography System (Manrope) ──────────────────────────────────────────────
+// ─── Typography (Manrope) ─────────────────────────────────────────────────────
 export const fonts = {
   regular: 'Manrope_400Regular',
   medium: 'Manrope_500Medium',
@@ -67,28 +56,21 @@ export const fonts = {
 
 export const typography = {
   h1: {
-    fontFamily: fonts.extraBold,
-    fontSize: 32,
-    lineHeight: 40,
-    letterSpacing: -0.8,
-  },
-  h2: {
     fontFamily: fonts.bold,
     fontSize: 28,
     lineHeight: 36,
-    letterSpacing: -0.5,
   },
-  h3: {
+  h2: {
     fontFamily: fonts.bold,
     fontSize: 24,
     lineHeight: 32,
   },
-  h4: {
+  h3: {
     fontFamily: fonts.semiBold,
     fontSize: 20,
     lineHeight: 28,
   },
-  h5: {
+  h4: {
     fontFamily: fonts.semiBold,
     fontSize: 18,
     lineHeight: 24,
@@ -108,25 +90,4 @@ export const typography = {
     fontSize: 12,
     lineHeight: 16,
   },
-  button: {
-    fontFamily: fonts.semiBold,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-};
-
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-export const palette = {
-  navy: '#0D1B2A',
-  navyMid: '#112236',
-  navyLight: '#1A3050',
-  gold: '#E8A838',
-  goldLight: '#F2C26A',
-  goldPale: '#FDF3DC',
-  cream: '#FAF7F2',
-  white: '#FFFFFF',
-  ink: '#0D1B2A',
-  muted: '#8A9BB0',
-  border: '#D9E2EE',
-  inputBg: '#F4F7FB',
 };
