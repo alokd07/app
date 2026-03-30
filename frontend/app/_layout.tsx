@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Stack } from "expo-router";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, StatusBar } from "react-native";
 import {
   useFonts,
   Manrope_400Regular,
@@ -38,6 +38,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
+      <StatusBar backgroundColor={colors.primary} />
       <Stack
         screenOptions={{
           headerStyle: {
@@ -63,6 +64,7 @@ export default function RootLayout() {
           name="auth/verify-otp"
           options={{
             title: "Verify OTP",
+            headerShown: false,
           }}
         />
         <Stack.Screen
