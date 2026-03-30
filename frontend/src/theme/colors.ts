@@ -1,9 +1,21 @@
+// ─── Primary Palette (Navy + Gold Premium Theme) ─────────────────────────────
 export const colors = {
-  primary: '#2D7A6B',
-  primaryDark: '#1F5449',
-  primaryLight: '#3A9384',
+  // Primary colors
+  primary: '#E8A838',        // Gold
+  primaryDark: '#D4922A',    // Dark gold
+  primaryLight: '#F2C26A',   // Light gold
+  
+  // Navy shades
+  navy: '#0D1B2A',
+  navyMid: '#112236',
+  navyLight: '#1A3050',
+  
+  // Neutrals
   white: '#FFFFFF',
   black: '#000000',
+  cream: '#FAF7F2',
+  ink: '#0D1B2A',
+  
   gray: {
     50: '#F8F9FA',
     100: '#F1F3F5',
@@ -16,10 +28,20 @@ export const colors = {
     800: '#212529',
     900: '#1A1D20',
   },
-  success: '#10B981',
-  error: '#EF4444',
+  
+  // Semantic colors
+  success: '#27AE60',
+  error: '#E05252',
   warning: '#F59E0B',
   info: '#3B82F6',
+  
+  // Additional
+  muted: '#8A9BB0',
+  border: '#D9E2EE',
+  inputBg: '#F4F7FB',
+  goldPale: '#FDF3DC',
+  
+  // Legacy teal (for gradual migration)
   teal: {
     50: '#F0F9F7',
     100: '#D1F0E8',
@@ -34,6 +56,7 @@ export const colors = {
   },
 };
 
+// ─── Typography System (Manrope) ──────────────────────────────────────────────
 export const fonts = {
   regular: 'Manrope_400Regular',
   medium: 'Manrope_500Medium',
@@ -42,20 +65,21 @@ export const fonts = {
   extraBold: 'Manrope_800ExtraBold',
 };
 
-// Typography scale with Manrope
 export const typography = {
   h1: {
-    fontFamily: fonts.bold,
+    fontFamily: fonts.extraBold,
     fontSize: 32,
     lineHeight: 40,
+    letterSpacing: -0.8,
   },
   h2: {
     fontFamily: fonts.bold,
     fontSize: 28,
     lineHeight: 36,
+    letterSpacing: -0.5,
   },
   h3: {
-    fontFamily: fonts.semiBold,
+    fontFamily: fonts.bold,
     fontSize: 24,
     lineHeight: 32,
   },
@@ -89,4 +113,20 @@ export const typography = {
     fontSize: 16,
     lineHeight: 24,
   },
+};
+
+// ─── Design Tokens ────────────────────────────────────────────────────────────
+export const palette = {
+  navy: '#0D1B2A',
+  navyMid: '#112236',
+  navyLight: '#1A3050',
+  gold: '#E8A838',
+  goldLight: '#F2C26A',
+  goldPale: '#FDF3DC',
+  cream: '#FAF7F2',
+  white: '#FFFFFF',
+  ink: '#0D1B2A',
+  muted: '#8A9BB0',
+  border: '#D9E2EE',
+  inputBg: '#F4F7FB',
 };

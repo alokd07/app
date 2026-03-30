@@ -141,20 +141,25 @@ export default function LoginScreen() {
       );
       return;
     }
-    // setLoading(true);
-    return router.push({
-      pathname: "/auth/verify-otp",
-      params: { phone: `+91${phone}` },
-    });
+    
+    setLoading(true);
     try {
       const response = await apiClient.post(API_CONFIG.ENDPOINTS.SEND_OTP, {
         phone: `+91${phone}`,
       });
+      
       if (response.data && (response.data.success || response.status === 200)) {
-        router.push({
-          pathname: "/auth/verify-otp",
-          params: { phone: `+91${phone}` },
-        });
+        Alert.alert("Success", "OTP sent to your WhatsApp", [
+          {
+            text: "OK",
+            onPress: () => {
+              router.push({
+                pathname: "/auth/verify-otp",
+                params: { phone: `+91${phone}` },
+              });
+            },
+          },
+        ]);
       } else {
         throw new Error("Failed to send OTP");
       }

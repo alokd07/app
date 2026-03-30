@@ -205,23 +205,32 @@ export default function VerifyOTPScreen() {
   const handleVerifyOTP = async () => {
     if (!otp || otp.length !== OTP_LENGTH) {
       shake();
+      Alert.alert("Invalid OTP", "Please enter a valid 6-digit OTP");
       return;
     }
 
-    return router.replace("/(tabs)/home");
     setLoading(true);
     try {
       const response = await apiClient.post(API_CONFIG.ENDPOINTS.VERIFY_OTP, {
         phone,
         otp,
       });
+      
       if (response.data?.data) {
         const { token, user } = response.data.data;
         await saveToken(token);
         await saveUserData(user);
         setUser(user);
         setAuthenticated(true);
-        router.replace("/(tabs)/home");
+        
+        Alert.alert("Success!", "Login successful", [
+          {
+            text: "Continue",
+            onPress: () => {
+              router.replace("/(tabs)/home");
+            },
+          },
+        ]);
       } else {
         throw new Error("Invalid response from server");
       }
