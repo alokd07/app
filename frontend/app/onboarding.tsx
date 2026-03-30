@@ -7,58 +7,44 @@ import {
   Dimensions,
   TouchableOpacity,
   ViewToken,
-  Animated,
+  ImageBackground,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../src/theme/colors';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface OnboardingSlide {
   id: string;
   title: string;
   description: string;
-  icon: string;
-  color: string;
+  image: string;
 }
 
 const slides: OnboardingSlide[] = [
   {
     id: '1',
-    title: 'Find Best Teachers',
-    description: 'Browse and search from a wide range of qualified teachers across all subjects',
-    icon: 'search',
-    color: colors.primary,
+    title: 'Bringing Quality Learning to the Digital Generation',
+    description: 'Easily track your progress and master new skills with our course tools',
+    image: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=800&q=80',
   },
   {
     id: '2',
-    title: 'Book Sessions Easily',
-    description: 'Select available time slots and book your learning sessions in just a few taps',
-    icon: 'calendar',
-    color: colors.success,
+    title: 'Find Expert Teachers for Every Subject',
+    description: 'Connect with qualified teachers and book sessions that fit your schedule',
+    image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&q=80',
   },
   {
     id: '3',
-    title: 'Learn & Grow',
-    description: 'Attend online or offline sessions and achieve your learning goals with expert guidance',
-    icon: 'trending-up',
-    color: colors.warning,
+    title: 'Learn Anywhere, Anytime',
+    description: 'Access your courses online or offline and learn at your own pace',
+    image: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800&q=80',
   },
 ];
 
 export default function OnboardingScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-  const [fadeAnim] = useState(new Animated.Value(0));
-
-  React.useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
-  }, []);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (viewableItems.length > 0) {
@@ -84,20 +70,23 @@ export default function OnboardingScreen() {
 
   const renderSlide = ({ item }: { item: OnboardingSlide }) => (
     <View style={styles.slide}>
-      <View style={[styles.iconContainer, { backgroundColor: item.color + '15' }]}>
-        <Ionicons name={item.icon as any} size={80} color={item.color} />
+      <ImageBackground
+        source={{ uri: item.image }}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.overlay} />
+      </ImageBackground>
+      
+      <View style={styles.contentCard}>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.description}>{item.description}</Text>
       </View>
-      <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.description}>{item.description}</Text>
     </View>
   );
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <TouchableOpacity style={styles.skipButton} onPress={handleSkip} activeOpacity={0.7}>
-        <Text style={styles.skipText}>Skip</Text>
-      </TouchableOpacity>
-
+    <View style={styles.container}>
       <FlatList
         ref={flatListRef}
         data={slides}
@@ -123,22 +112,19 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        <TouchableOpacity 
-          style={styles.nextButton} 
-          onPress={handleNext}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.nextText}>
-            {currentIndex === slides.length - 1 ? 'Get Started' : 'Next'}
-          </Text>
-          <Ionicons 
-            name={currentIndex === slides.length - 1 ? 'checkmark' : 'arrow-forward'} 
-            size={22} 
-            color={colors.white} 
-          />
-        </TouchableOpacity>
+        <View style={styles.navigation}>
+          <TouchableOpacity onPress={handleSkip} activeOpacity={0.7}>
+            <Text style={styles.skipText}>Skip</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleNext} activeOpacity={0.7}>
+            <Text style={styles.nextText}>Next</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </Animated.View>
+
+      <View style={styles.homeIndicator} />
+    </View>
   );
 }
 
@@ -147,69 +133,66 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
-  skipButton: {
-    position: 'absolute',
-    top: 50,
-    right: 24,
-    zIndex: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: colors.gray[100],
-    borderRadius: 20,
-  },
-  skipText: {
-    fontSize: 15,
-    color: colors.gray[700],
-    fontWeight: '600',
-  },
   slide: {
     width,
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
+    height,
   },
-  iconContainer: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 48,
+  backgroundImage: {
+    width: '100%',
+    height: height * 0.65,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  contentCard: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 32,
+    paddingTop: 40,
+    paddingBottom: 120,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 8,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: colors.gray[900],
-    marginBottom: 20,
     textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 36,
   },
   description: {
     fontSize: 16,
     color: colors.gray[600],
     textAlign: 'center',
-    lineHeight: 26,
-    paddingHorizontal: 10,
+    lineHeight: 24,
   },
   footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 48,
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 32,
   },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   dot: {
     height: 8,
     borderRadius: 4,
-    marginHorizontal: 4,
+    marginHorizontal: 6,
   },
   dotActive: {
     backgroundColor: colors.primary,
@@ -219,23 +202,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[300],
     width: 8,
   },
-  nextButton: {
+  navigation: {
     flexDirection: 'row',
-    backgroundColor: colors.primary,
-    paddingVertical: 18,
-    borderRadius: 16,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+  },
+  skipText: {
+    fontSize: 16,
+    color: colors.gray[600],
+    fontWeight: '500',
   },
   nextText: {
-    color: colors.white,
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  homeIndicator: {
+    position: 'absolute',
+    bottom: 8,
+    left: '50%',
+    marginLeft: -67,
+    width: 134,
+    height: 5,
+    backgroundColor: colors.gray[900],
+    borderRadius: 3,
   },
 });
