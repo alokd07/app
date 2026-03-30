@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,12 @@ import {
   TouchableOpacity,
   ViewToken,
   ImageBackground,
-} from 'react-native';
-import { router } from 'expo-router';
-import { colors } from '../src/theme/colors';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { colors } from "../src/theme/colors";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 interface OnboardingSlide {
   id: string;
@@ -23,22 +24,28 @@ interface OnboardingSlide {
 
 const slides: OnboardingSlide[] = [
   {
-    id: '1',
-    title: 'Bringing Quality Learning to the Digital Generation',
-    description: 'Easily track your progress and master new skills with our course tools',
-    image: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=800&q=80',
+    id: "1",
+    title: "Bringing Quality Learning to the Digital Generation",
+    description:
+      "Easily track your progress and master new skills with our course tools",
+    image:
+      "https://images.unsplash.com/photo-1577896851231-70ef18881754?w=800&q=80",
   },
   {
-    id: '2',
-    title: 'Find Expert Teachers for Every Subject',
-    description: 'Connect with qualified teachers and book sessions that fit your schedule',
-    image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&q=80',
+    id: "2",
+    title: "Find Expert Teachers for Every Subject",
+    description:
+      "Connect with qualified teachers and book sessions that fit your schedule",
+    image:
+      "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&q=80",
   },
   {
-    id: '3',
-    title: 'Learn Anywhere, Anytime',
-    description: 'Access your courses online or offline and learn at your own pace',
-    image: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800&q=80',
+    id: "3",
+    title: "Learn Anywhere, Anytime",
+    description:
+      "Access your courses online or offline and learn at your own pace",
+    image:
+      "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800&q=80",
   },
 ];
 
@@ -46,11 +53,13 @@ export default function OnboardingScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    if (viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index || 0);
-    }
-  }).current;
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (viewableItems.length > 0) {
+        setCurrentIndex(viewableItems[0].index || 0);
+      }
+    },
+  ).current;
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 50,
@@ -60,12 +69,12 @@ export default function OnboardingScreen() {
     if (currentIndex < slides.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
     } else {
-      router.replace('/auth/login');
+      router.replace("/auth/login");
     }
   };
 
   const handleSkip = () => {
-    router.replace('/auth/login');
+    router.replace("/auth/login");
   };
 
   const renderSlide = ({ item }: { item: OnboardingSlide }) => (
@@ -77,7 +86,7 @@ export default function OnboardingScreen() {
       >
         <View style={styles.overlay} />
       </ImageBackground>
-      
+
       <View style={styles.contentCard}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.description}>{item.description}</Text>
@@ -86,7 +95,7 @@ export default function OnboardingScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       <FlatList
         ref={flatListRef}
         data={slides}
@@ -122,9 +131,7 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
         </View>
       </View>
-
-      <View style={styles.homeIndicator} />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -138,15 +145,16 @@ const styles = StyleSheet.create({
     height,
   },
   backgroundImage: {
-    width: '100%',
-    height: height * 0.65,
+    width: "100%",
+    height: height * 0.75,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
   },
   contentCard: {
-    position: 'absolute',
+    position: "absolute",
+    top: height * 0.75 - 80,
     bottom: 0,
     left: 0,
     right: 0,
@@ -156,39 +164,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 40,
     paddingBottom: 120,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    fontFamily: 'Manrope_700Bold',
+    fontWeight: "bold",
+    fontFamily: "Manrope_700Bold",
     color: colors.gray[900],
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 16,
     lineHeight: 36,
   },
   description: {
     fontSize: 16,
-    fontFamily: 'Manrope_400Regular',
+    fontFamily: "Manrope_400Regular",
     color: colors.gray[600],
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 24,
   },
   footer: {
-    position: 'absolute',
-    bottom: 40,
+    position: "absolute",
+    bottom: 20,
     left: 0,
     right: 0,
     paddingHorizontal: 32,
   },
   pagination: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 24,
   },
   dot: {
@@ -205,28 +208,18 @@ const styles = StyleSheet.create({
     width: 8,
   },
   navigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   skipText: {
     fontSize: 16,
-    fontFamily: 'Manrope_500Medium',
+    fontFamily: "Manrope_700Bold",
     color: colors.gray[600],
   },
   nextText: {
     fontSize: 16,
-    fontFamily: 'Manrope_600SemiBold',
+    fontFamily: "Manrope_700Bold",
     color: colors.primary,
-  },
-  homeIndicator: {
-    position: 'absolute',
-    bottom: 8,
-    left: '50%',
-    marginLeft: -67,
-    width: 134,
-    height: 5,
-    backgroundColor: colors.gray[900],
-    borderRadius: 3,
   },
 });

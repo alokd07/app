@@ -122,11 +122,6 @@ export default function SplashScreen() {
           </View>
         </View>
       </Animated.View>
-
-      {/* Bottom Decoration */}
-      <View style={styles.bottomDecoration}>
-        <View style={styles.decorationLine} />
-      </View>
     </View>
   );
 }
@@ -248,17 +243,5 @@ const styles = StyleSheet.create({
   },
   dot3: {
     opacity: 1,
-  },
-  bottomDecoration: {
-    position: 'absolute',
-    bottom: 40,
-    width: width,
-    alignItems: 'center',
-  },
-  decorationLine: {
-    width: 100,
-    height: 4,
-    backgroundColor: colors.primary + '30',
-    borderRadius: 2,
   },
 });
