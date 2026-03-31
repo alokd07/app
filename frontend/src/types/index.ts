@@ -13,6 +13,7 @@ export interface Availability {
 export interface Teacher {
   _id: string;
   name: string;
+  subject: string;
   profileImage: string;
   subjects: string[];
   classes: string[];

@@ -51,7 +51,7 @@ export default function RootLayout() {
           },
         }}
       >
-        {/* <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen
           name="auth/login"
@@ -66,7 +66,7 @@ export default function RootLayout() {
             title: "Verify OTP",
             headerShown: false,
           }}
-        /> */}
+        />
         <Stack.Screen
           name="(tabs)"
           options={{
@@ -101,6 +101,13 @@ export default function RootLayout() {
           name="booking/[id]"
           options={{
             title: "Booking Details",
+          }}
+        />
+        <Stack.Screen
+          name="ai-results"
+          options={{
+            title: "AI Recommendations",
+            headerShown: false,
           }}
         />
       </Stack>

@@ -24,6 +24,9 @@ import { Teacher } from "../../src/types";
 import { debounce } from "../../src/utils/helpers";
 import { getUserData } from "../../src/services/auth";
 import Avatar from "@/components/Avatar";
+// expo haptic
+import * as Haptics from "expo-haptics";
+import { BlurView } from "expo-blur";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 56) / 2;
@@ -479,7 +482,19 @@ export default function HomeScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const loadingRef = useRef(false);
   const pageRef = useRef(1);
+  const [isMatching, setIsMatching] = useState(false);
 
+  // 2. The Function for the FAB
+  const startAiMatch = () => {
+    setIsMatching(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Simulate AI "Thinking" for 2 seconds
+    setTimeout(() => {
+      setIsMatching(false);
+      router.push("/ai-results"); // Navigate to a special results screen
+    }, 2500);
+  };
   const FILTERS = ["All", "Math", "Science", "English", "Near Me"];
 
   useEffect(() => {
@@ -546,6 +561,43 @@ export default function HomeScreen() {
     fetchTeachers(1, searchQuery);
   };
 
+  // Inside HomeScreen function
+  const fabAnim = useRef(new Animated.Value(1)).current; // For Scale & Visibility
+  const pulseAnim = useRef(new Animated.Value(1)).current; // For the "Glow"
+
+  // 1. Create the "Breathing" pulse effect
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.2,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
+  // 2. Map scroll to FAB visibility (interpolating the scrollY you already have)
+  const fabTranslateY = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 100],
+    extrapolate: "clamp",
+  });
+
+  const fabOpacity = scrollY.interpolate({
+    inputRange: [0, 50],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
+
   const renderHeader = () => (
     <SafeAreaView style={styles.headerContainer}>
       {/* ── Top Nav ── */}
@@ -555,7 +607,9 @@ export default function HomeScreen() {
             <Avatar name={user?.name || "Alok Dubey"} size={42} />
             <View>
               <Text style={styles.greetingLabel}>{getGreeting()}</Text>
-              <Text style={styles.userNameNew}>{user?.name || "Alok Dubey"}</Text>
+              <Text style={styles.userNameNew}>
+                {user?.name || "Alok Dubey"}
+              </Text>
             </View>
           </View>
           <View style={styles.row}>
@@ -825,17 +879,66 @@ export default function HomeScreen() {
         maxToRenderPerBatch={6}
       />
 
-      {/* FAB */}
-      <TouchableOpacity style={styles.fab}>
-        <LinearGradient
-          colors={[palette.gold, palette.goldLight]}
-          style={styles.fabGrad}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+      {/* Enhanced Animated FAB */}
+      <Animated.View
+        style={[
+          styles.fabContainer,
+          {
+            transform: [{ translateY: fabTranslateY }, { scale: fabAnim }],
+          },
+        ]}
+      >
+
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPressIn={() =>
+            Animated.spring(fabAnim, {
+              toValue: 0.9,
+              useNativeDriver: true,
+            }).start()
+          }
+          onPressOut={() =>
+            Animated.spring(fabAnim, {
+              toValue: 1,
+              friction: 3,
+              tension: 40,
+              useNativeDriver: true,
+            }).start()
+          }
+          onPress={() => startAiMatch()}
         >
-          <Ionicons name="sparkles" size={22} color={palette.navy} />
-        </LinearGradient>
-      </TouchableOpacity>
+          <LinearGradient
+            colors={[palette.gold, palette.goldLight]}
+            style={styles.fabGrad}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons name="sparkles" size={20} color={palette.navy} />
+            <Text style={styles.fabLabel}>AI Match</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {isMatching && (
+        <Animated.View style={StyleSheet.absoluteFill}>
+          <BlurView intensity={90} tint="dark" style={styles.matchOverlay}>
+            <View style={styles.matchContent}>
+              <Ionicons name="sparkles" size={80} color={palette.gold} />
+              <Text style={styles.matchTitle}>
+                Finding your perfect tutor...
+              </Text>
+              <Text style={styles.matchSubtitle}>
+                Analyzing 500+ teachers in Delhi
+              </Text>
+              <ActivityIndicator
+                size="large"
+                color={palette.gold}
+                style={{ marginTop: 30 }}
+              />
+            </View>
+          </BlurView>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -1431,24 +1534,56 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_400Regular",
     color: palette.muted,
   },
-  fab: {
+  fabContainer: {
     position: "absolute",
     bottom: 96,
     right: 20,
-    width: 54,
-    height: 54,
-    borderRadius: 17,
-    shadowColor: palette.navy,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  fabGrad: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 17,
+    // Note: We don't set width here so it expands with the button
+    height: 50,
+    zIndex: 99,
     justifyContent: "center",
     alignItems: "center",
+  },
+  fabGrad: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    height: 50, // Fixed height
+    borderRadius: 25, // Perfect circle ends
+    gap: 8,
+    shadowColor: palette.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  fabLabel: {
+    fontSize: 14,
+    fontFamily: "Manrope_700Bold",
+    color: palette.navy,
+  },
+  matchOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  matchContent: {
+    alignItems: "center",
+    padding: 40,
+  },
+  matchTitle: {
+    fontSize: 22,
+    fontFamily: "Manrope_700Bold",
+    color: palette.white,
+    textAlign: "center",
+    marginTop: 20,
+  },
+  matchSubtitle: {
+    fontSize: 14,
+    fontFamily: "Manrope_400Regular",
+    color: "rgba(255,255,255,0.6)",
+    marginTop: 8,
   },
 });
