@@ -19,6 +19,7 @@ export interface Teacher {
   pricePerHour: number;
   rating: number;
   totalReviews: number;
+  hourlyRate: number;
   bio?: string;
   experienceYears?: number;
   availability?: Availability[];

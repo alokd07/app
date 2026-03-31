@@ -18,6 +18,7 @@ import { API_CONFIG } from '../../src/config/api';
 import { removeToken, getUserData } from '../../src/services/auth';
 import { useAuthStore } from '../../src/store/authStore';
 import { User } from '../../src/types';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null);
@@ -91,7 +92,8 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.container}>
+    <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
           {user?.profileImage ? (
@@ -186,6 +188,7 @@ export default function ProfileScreen() {
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

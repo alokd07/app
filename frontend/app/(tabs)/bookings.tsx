@@ -16,6 +16,7 @@ import apiClient from '../../src/services/api';
 import { API_CONFIG } from '../../src/config/api';
 import { Booking, Teacher } from '../../src/types';
 import { formatDate, formatTime, formatCurrency } from '../../src/utils/helpers';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type TabType = 'upcoming' | 'completed' | 'cancelled';
 
@@ -140,7 +141,7 @@ export default function BookingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.tabs}>
         {(['upcoming', 'completed', 'cancelled'] as TabType[]).map((tab) => (
           <TouchableOpacity
@@ -176,7 +177,7 @@ export default function BookingsScreen() {
           }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
