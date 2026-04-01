@@ -295,6 +295,7 @@ export default function VerifyOTPScreen() {
   const heroSlide = useRef(new Animated.Value(-16)).current;
   const cardSlide = useRef(new Animated.Value(28)).current;
   const keyboardVisibleRef = useRef(false);
+  const autoVerifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const focusOtpInput = () => {
     const input = inputRef.current;
@@ -351,6 +352,14 @@ export default function VerifyOTPScreen() {
     ]).start(() => focusOtpInput());
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (autoVerifyTimerRef.current) {
+        clearTimeout(autoVerifyTimerRef.current);
+      }
+    };
+  }, []);
+
   const shake = () => {
     Animated.sequence([
       Animated.timing(shakeAnim, {
@@ -381,23 +390,32 @@ export default function VerifyOTPScreen() {
     ]).start();
   };
 
-  const handleVerifyOTP = async () => {
-    if (otp.length !== OTP_LENGTH) {
+  const handleVerifyOTP = async (otpValue?: string) => {
+    const normalizedOtp = (otpValue ?? otp)
+      .replace(/\D/g, "")
+      .slice(0, OTP_LENGTH);
+    console.log(
+      "Verifying OTP:",
+      normalizedOtp,
+      "length:",
+      normalizedOtp.length,
+      OTP_LENGTH
+    );
+    if (normalizedOtp.length !== OTP_LENGTH) {
+      console.log("OTP incomplete, cannot verify");
       shake();
       return;
     }
     setLoading(true);
 
-    // dev shortcut — remove before prod
-    router.replace("/(tabs)/home");
-    return;
-
     try {
       const res = await apiClient.post(API_CONFIG.ENDPOINTS.VERIFY_OTP, {
-        phone,
-        otp,
+        phoneNumber: phone,
+        otp: normalizedOtp,
+        type: "student",
       });
-      if (res.data?.data) {
+      console.log("OTP verification response:", res.data.data);
+      if (res.data.data) {
         const { token, user } = res.data.data;
         await saveToken(token);
         await saveUserData(user);
@@ -407,6 +425,7 @@ export default function VerifyOTPScreen() {
       } else throw new Error("Invalid response");
     } catch (err: any) {
       shake();
+      console.log("OTP verification error:", err.response?.data || err.message || err);
       Alert.alert(
         "Verification Failed",
         err.response?.data?.message || "Invalid OTP.",
@@ -419,7 +438,10 @@ export default function VerifyOTPScreen() {
   const handleResend = async () => {
     setResending(true);
     try {
-      await apiClient.post(API_CONFIG.ENDPOINTS.SEND_OTP, { phone });
+      await apiClient.post(API_CONFIG.ENDPOINTS.RESEND_OTP, {
+        phoneNumber: phone,
+        type: "student",
+      });
       Alert.alert("Sent!", "A new OTP has been sent to your WhatsApp.");
     } catch {
       Alert.alert("Error", "Failed to resend OTP.");
@@ -517,9 +539,17 @@ export default function VerifyOTPScreen() {
           autoFocus
           showSoftInputOnFocus
           onChangeText={(v) => {
-            setOtp(v);
-            if (v.length === OTP_LENGTH)
-              setTimeout(() => handleVerifyOTP(), 320);
+            const cleaned = v.replace(/\D/g, "").slice(0, OTP_LENGTH);
+            setOtp(cleaned);
+            if (autoVerifyTimerRef.current) {
+              clearTimeout(autoVerifyTimerRef.current);
+            }
+            if (cleaned.length === OTP_LENGTH) {
+              autoVerifyTimerRef.current = setTimeout(
+                () => handleVerifyOTP(cleaned),
+                320,
+              );
+            }
           }}
           editable={!loading}
         />
@@ -555,7 +585,7 @@ export default function VerifyOTPScreen() {
         {/* CTA */}
         <TouchableOpacity
           style={[styles.cta, (!isComplete || loading) && styles.ctaOff]}
-          onPress={handleVerifyOTP}
+          onPress={() => handleVerifyOTP()}
           disabled={!isComplete || loading}
           activeOpacity={0.88}
         >

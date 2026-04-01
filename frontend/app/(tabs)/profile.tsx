@@ -15,6 +15,9 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getUserData } from "@/src/services/auth";
+import Avatar from "@/components/Avatar";
+import * as WebBrowser from "expo-web-browser";
 
 const { width } = Dimensions.get("window");
 
@@ -56,7 +59,17 @@ function SettingsLink({ icon, label, sublabel, danger, onPress }: any) {
 
 export default function ProfileScreen() {
   const [isEditing, setIsEditing] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+      loadUser();
+    }, []);
+  
+    const loadUser = async () => {
+      const userData = await getUserData();
+      setUser(userData);
+    };
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -65,6 +78,23 @@ export default function ProfileScreen() {
       useNativeDriver: true,
     }).start();
   }, []);
+
+  const formatPhoneNumber = (phone: string | undefined): string => {
+    if (!phone) return "Phone Number";
+
+    // Remove all non-digits
+    const digits = phone.replace(/\D/g, "");
+
+    // Handle Indian numbers (assumes country code 91)
+    if (digits.length === 12 && digits.startsWith("91")) {
+      const country = "+91";
+      const first = digits.slice(2, 7);
+      const second = digits.slice(7, 12);
+      return `${country} ${first} ${second}`;
+    }
+
+    return phone; // fallback if format not matched
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -83,21 +113,22 @@ export default function ProfileScreen() {
             <View style={styles.avatarWrapper}>
               {/* Progress Ring */}
               <View style={styles.progressRing} />
-              <Image
-                source={{
-                  uri: "https://randomuser.me/api/portraits/men/32.jpg",
-                }}
-                style={styles.avatarImg}
+              <Avatar
+                uri={user?.imageUrl}
+                name={user?.firstName || "Student"}
+                size={84}
               />
               <TouchableOpacity style={styles.cameraBtn}>
                 <Ionicons name="camera" size={14} color={P.navy} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.userName}>Alok Dubey</Text>
+            <Text style={styles.userName}>
+              {user?.firstName + " " + user?.lastName || "Student"}
+            </Text>
             <View style={styles.rankPill}>
               <Ionicons name="ribbon" size={12} color={P.gold} />
-              <Text style={styles.rankText}>GOLD MEMBER</Text>
+              <Text style={styles.rankText}>GOLD STUDENT</Text>
             </View>
           </View>
 
@@ -129,16 +160,18 @@ export default function ProfileScreen() {
               <Text style={styles.inputLabel}>FULL NAME</Text>
               <TextInput
                 style={[styles.input, !isEditing && styles.inputLocked]}
-                value="Alok Dubey"
+                value={
+                  user ? user.firstName + " " + user.lastName : "Student Name"
+                }
                 editable={isEditing}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
+              <Text style={styles.inputLabel}>PHONE NUMBER</Text>
               <TextInput
                 style={[styles.input, !isEditing && styles.inputLocked]}
-                value="alok.dubey@example.com"
+                value={formatPhoneNumber(user?.phoneNumber)}
                 editable={isEditing}
               />
             </View>
@@ -147,7 +180,7 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, { marginTop: 25 }]}>
             Preferences
           </Text>
-          <View style={styles.settingsCard}>
+            <View style={styles.settingsCard}>
             <SettingsLink
               icon="notifications-outline"
               label="Notifications"
@@ -158,6 +191,9 @@ export default function ProfileScreen() {
               icon="shield-checkmark-outline"
               label="Privacy & Security"
               sublabel="Password, data usage"
+              onPress={() => {
+              WebBrowser.openBrowserAsync("https://www.bookmysession.in/privacy-policy");
+              }}
             />
             <View style={styles.hDivider} />
             <SettingsLink
@@ -165,7 +201,7 @@ export default function ProfileScreen() {
               label="Payments"
               sublabel="Invoices, saved cards"
             />
-          </View>
+            </View>
 
           <TouchableOpacity style={styles.logoutBtn}>
             <Ionicons name="log-out-outline" size={20} color="#EF4444" />

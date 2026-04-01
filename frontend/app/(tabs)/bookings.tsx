@@ -22,6 +22,8 @@ import {
   formatTime,
   formatCurrency,
 } from "../../src/utils/helpers";
+import Avatar from "@/components/Avatar";
+import { getUserData } from "@/src/services/auth";
 
 const { width } = Dimensions.get("window");
 
@@ -290,6 +292,16 @@ function BookingCard({ item, index }: { item: any; index: number }) {
 export default function BookingsScreen() {
   const [activeTab, setActiveTab] = useState("upcoming");
   const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const userData = await getUserData();
+      setUser(userData);
+    };
+    loadUser();
+  }, []);
+
 
   // Stats Logic
   const stats = [
@@ -309,7 +321,7 @@ export default function BookingsScreen() {
           <Text style={styles.titleNew}>Sessions</Text>
         </View>
         <TouchableOpacity style={styles.profileCircle}>
-          <Ionicons name="person" size={20} color={P.navy} />
+          <Avatar uri={user?.imageUrl} name={user?.firstName} size={44} />
         </TouchableOpacity>
       </View>
 
@@ -373,12 +385,6 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   profileCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.border,
     justifyContent: "center",
     alignItems: "center",
   },

@@ -205,17 +205,12 @@ export default function LoginScreen() {
       );
       return;
     }
-    // dev shortcut
-    router.push({
-      pathname: "/auth/verify-otp",
-      params: { phone: `+91${phone}` },
-    });
-    return;
-
     setLoading(true);
+
     try {
       const response = await apiClient.post(API_CONFIG.ENDPOINTS.SEND_OTP, {
-        phone: `+91${phone}`,
+        phoneNumber: `+91${phone}`,
+        type: "student",
       });
       if (response.data && (response.data.success || response.status === 200)) {
         router.push({

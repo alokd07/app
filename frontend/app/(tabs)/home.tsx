@@ -535,6 +535,7 @@ export default function HomeScreen() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedSearch = useCallback(
     debounce((q: string) => {
       setPage(1);
@@ -604,11 +605,11 @@ export default function HomeScreen() {
       <View style={{ backgroundColor: palette.cream }}>
         <View style={styles.topNav}>
           <View style={styles.row}>
-            <Avatar name={user?.name || "Alok Dubey"} size={42} />
+            <Avatar uri={user?.imageUrl} name={user?.firstName || "Student"} size={42} />
             <View>
               <Text style={styles.greetingLabel}>{getGreeting()}</Text>
               <Text style={styles.userNameNew}>
-                {user?.name || "Alok Dubey"}
+                {user?.firstName + " " + user?.lastName || "Student"}
               </Text>
             </View>
           </View>
