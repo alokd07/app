@@ -24,17 +24,21 @@ import Animated, {
   FadeIn,
   ZoomIn,
   SharedValue,
+  withRepeat,
+  withSequence,
 } from "react-native-reanimated";
 import { isAuthenticated } from "../src/services/auth";
 import * as Haptics from "expo-haptics";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
 
-// ─── Brand Design System ─────────────────────────────────────────────────────
+// ─── Brand Design System (Expo-Optimized) ───────────────────────────────────
 const brand = {
   colors: {
     navy: {
+      950: "#010409",
       900: "#020817",
+      850: "#0A1120",
       800: "#0F172A",
       700: "#1E293B",
     },
@@ -42,11 +46,13 @@ const brand = {
       DEFAULT: "#E8A838",
       light: "#F4C566",
       dark: "#B47C1C",
-      glow: "rgba(232, 168, 56, 0.25)",
+      glow: "rgba(232, 168, 56, 0.35)",
+      gradient: ["#F4C566", "#E8A838", "#B47C1C"] as const,
     },
     white: "#FFFFFF",
     muted: "rgba(255, 255, 255, 0.5)",
     subtle: "rgba(255, 255, 255, 0.1)",
+    accent: "rgba(232, 168, 56, 0.15)",
   },
   typography: {
     display: { fontSize: 36, fontWeight: "900", letterSpacing: -1.5 },
@@ -59,17 +65,282 @@ const brand = {
     fast: 200,
     normal: 400,
     slow: 800,
-    spring: { damping: 15, stiffness: 120, mass: 1 },
+    slower: 1200,
+    spring: { damping: 18, stiffness: 140, mass: 0.9 },
+    fluid: { easing: Easing.bezier(0.4, 0, 0.2, 1) },
   },
 };
 
-// ─── Component: Animated Particle Background ─────────────────────────────────
+// ─── Abstract Geometry (Expo-Compatible) ────────────────────────────────────
+const AbstractGeometry = memo(() => {
+  const geom1 = useSharedValue(0);
+  const geom2 = useSharedValue(0);
+  const geom3 = useSharedValue(0);
+
+  useEffect(() => {
+    geom1.value = withRepeat(
+      withTiming(1, { duration: 12000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+    geom2.value = withRepeat(
+      withTiming(1, { duration: 15000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      false,
+    );
+    geom3.value = withRepeat(
+      withTiming(1, { duration: 18000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+  }, [geom1, geom2, geom3]);
+
+  const geom1Style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(geom1.value, [0, 1], [-100, 100]) },
+      { translateY: interpolate(geom1.value, [0, 1], [-50, 80]) },
+      { rotate: `${interpolate(geom1.value, [0, 1], [0, 180])}deg` },
+      { scale: interpolate(geom1.value, [0, 0.5, 1], [0.8, 1.2, 0.8]) },
+    ],
+    opacity: interpolate(
+      geom1.value,
+      [0, 0.3, 0.7, 1],
+      [0.15, 0.25, 0.25, 0.15],
+    ),
+  }));
+
+  const geom2Style = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(geom2.value, [0, 1], [width - 80, width - 200]),
+      },
+      {
+        translateY: interpolate(
+          geom2.value,
+          [0, 1],
+          [height * 0.3, height * 0.8],
+        ),
+      },
+      { rotate: `${interpolate(geom2.value, [0, 1], [360, 0])}deg` },
+      { scale: interpolate(geom2.value, [0, 0.5, 1], [1, 0.7, 1]) },
+    ],
+    opacity: interpolate(geom2.value, [0, 0.4, 0.6, 1], [0.1, 0.2, 0.2, 0.1]),
+  }));
+
+  const geom3Style = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(
+          geom3.value,
+          [0, 1],
+          [width * 0.2, width * 0.8],
+        ),
+      },
+      {
+        translateY: interpolate(
+          geom3.value,
+          [0, 1],
+          [height * 0.7, height * 0.2],
+        ),
+      },
+      { rotate: `${interpolate(geom3.value, [0, 1], [-90, 90])}deg` },
+    ],
+  }));
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {/* Floating Diamond */}
+      <Animated.View
+        style={[
+          styles.abstractShape,
+          styles.diamond,
+          { backgroundColor: brand.colors.gold.glow },
+          geom1Style,
+        ]}
+      />
+
+      {/* Floating Hexagon (CSS-only hex using border trick) */}
+      <Animated.View
+        style={[
+          styles.abstractShape,
+          styles.hexagon,
+          { borderColor: brand.colors.gold.DEFAULT },
+          geom2Style,
+        ]}
+      />
+
+      {/* Floating Triangle */}
+      <Animated.View
+        style={[styles.abstractShape, styles.triangle, geom3Style]}
+      />
+
+      {/* Gradient Mesh Overlay */}
+      <LinearGradient
+        colors={[
+          "transparent",
+          brand.colors.accent,
+          "transparent",
+          brand.colors.gold.glow,
+          "transparent",
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.meshOverlay}
+      />
+    </View>
+  );
+});
+
+// ─── Enhanced Mesh Background (Expo-Only) ───────────────────────────────────
+const MeshBackground = memo(() => {
+  const orb1Pos = useSharedValue(0);
+  const orb2Pos = useSharedValue(0);
+  const pulse = useSharedValue(1);
+
+  useEffect(() => {
+    orb1Pos.value = withRepeat(
+      withTiming(1, { duration: 10000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+    orb2Pos.value = withRepeat(
+      withTiming(1, { duration: 14000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1.15, { duration: 2000 }),
+        withTiming(1, { duration: 2000 }),
+      ),
+      -1,
+      false,
+    );
+  }, [orb1Pos, orb2Pos, pulse]);
+
+  const orb1Style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(orb1Pos.value, [0, 1], [-80, 80]) },
+      { translateY: interpolate(orb1Pos.value, [0, 1], [-40, 120]) },
+      { scale: interpolate(orb1Pos.value, [0, 1], [1, 1.5]) },
+      { rotate: `${interpolate(orb1Pos.value, [0, 1], [0, 25])}deg` },
+    ],
+  }));
+
+  const orb2Style = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(
+          orb2Pos.value,
+          [0, 1],
+          [width - 100, width - 200],
+        ),
+      },
+      {
+        translateY: interpolate(
+          orb2Pos.value,
+          [0, 1],
+          [height * 0.4, height * 0.8],
+        ),
+      },
+      { scale: interpolate(orb2Pos.value, [0, 1], [1, 1.8]) },
+      { rotate: `${interpolate(orb2Pos.value, [0, 1], [0, -30])}deg` },
+    ],
+  }));
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+    opacity: interpolate(pulse.value, [1, 1.15], [0.25, 0.4]),
+  }));
+
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      {/* Deep Navy Gradient Base */}
+      <LinearGradient
+        colors={[
+          brand.colors.navy[950],
+          brand.colors.navy[900],
+          brand.colors.navy[850],
+          brand.colors.navy[800],
+        ]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Animated Gradient Orbs */}
+      <Animated.View style={[styles.meshOrb, styles.orbGold, orb1Style]}>
+        <LinearGradient
+          colors={brand.colors.gold.gradient}
+          style={StyleSheet.absoluteFill}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+      </Animated.View>
+
+      <Animated.View style={[styles.meshOrb, styles.orbNavy, orb2Style]}>
+        <LinearGradient
+          colors={[
+            brand.colors.navy[700],
+            brand.colors.navy[800],
+            "transparent",
+          ]}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+
+      {/* Pulsing Glow Center */}
+      <Animated.View
+        style={[
+          styles.pulseGlow,
+          pulseStyle,
+          { backgroundColor: brand.colors.gold.glow },
+        ]}
+      />
+
+      {/* Subtle Grid Pattern */}
+      <View style={styles.gridContainer}>
+        {Array.from({ length: 20 }).map((_, i) => (
+          <View key={`h-${i}`} style={styles.gridLineH} />
+        ))}
+        {Array.from({ length: 20 }).map((_, i) => (
+          <View key={`v-${i}`} style={styles.gridLineV} />
+        ))}
+      </View>
+
+      {/* Abstract Geometry Layer */}
+      <AbstractGeometry />
+
+      {/* Glass Blur Overlay (Expo Blur) */}
+      {Platform.OS === "ios" ? (
+        <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+      ) : (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: "rgba(2, 8, 23, 0.75)" },
+          ]}
+        />
+      )}
+
+      {/* Radial Vignette */}
+      <View style={styles.vignette} />
+    </View>
+  );
+});
+
+//displayName for better debugging in React DevTools
+MeshBackground.displayName = "MeshBackground";
+AbstractGeometry.displayName = "AbstractGeometry";
+
+// ─── Enhanced Particle System ───────────────────────────────────────────────
 const ParticleBackground = memo(() => {
-  const particles = Array.from({ length: 20 }, (_, i) => ({
+  const particles = Array.from({ length: 35 }, (_, i) => ({
     id: i,
-    size: Math.random() * 3 + 1,
+    size: Math.random() * 4 + 1,
     left: Math.random() * 100,
-    delay: Math.random() * 2,
+    top: Math.random() * 100,
+    delay: Math.random() * 3,
+    duration: Math.random() * 4000 + 3000,
+    opacity: Math.random() * 0.5 + 0.2,
   }));
 
   return (
@@ -77,13 +348,19 @@ const ParticleBackground = memo(() => {
       {particles.map((p) => (
         <Animated.View
           key={p.id}
-          entering={FadeIn.delay(p.delay * 1000)}
+          entering={FadeIn.delay(p.delay * 800)}
           style={[
             styles.particle,
             {
               width: p.size,
               height: p.size,
               left: `${p.left}%`,
+              top: `${p.top}%`,
+              opacity: p.opacity,
+              backgroundColor:
+                Math.random() > 0.7
+                  ? brand.colors.gold.light
+                  : "rgba(255, 255, 255, 0.6)",
             },
           ]}
         />
@@ -94,16 +371,47 @@ const ParticleBackground = memo(() => {
 
 ParticleBackground.displayName = "ParticleBackground";
 
-// ─── Component: Premium "B" Logo with SVG-like Construction ──────────────────
+// ─── Premium Logo (Expo-Compatible - No MaskedView) ─────────────────────────
 const BrandLogo = memo(
   ({ animationProgress }: { animationProgress: SharedValue<number> }) => {
+    const haloProgress = useSharedValue(0);
+    const orbitProgress = useSharedValue(0);
+    const sweepProgress = useSharedValue(0);
+    const sparkleProgress = useSharedValue(0);
+
+    useEffect(() => {
+      haloProgress.value = withRepeat(
+        withTiming(1, { duration: 6000, easing: Easing.linear }),
+        -1,
+        false,
+      );
+      orbitProgress.value = withRepeat(
+        withTiming(1, { duration: 5200, easing: Easing.linear }),
+        -1,
+        false,
+      );
+      sweepProgress.value = withRepeat(
+        withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.quad) }),
+        -1,
+        true,
+      );
+      sparkleProgress.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 800 }),
+          withTiming(0, { duration: 800 }),
+        ),
+        -1,
+        false,
+      );
+    }, [haloProgress, orbitProgress, sweepProgress, sparkleProgress]);
+
     const logoStyle = useAnimatedStyle(() => {
       const scale = interpolate(
         animationProgress.value,
         [0, 0.5, 1],
-        [0.6, 1.1, 1],
+        [0.5, 1.15, 1],
       );
-      const rotate = interpolate(animationProgress.value, [0, 1], [-10, 0]);
+      const rotate = interpolate(animationProgress.value, [0, 1], [-12, 0]);
       const opacity = interpolate(
         animationProgress.value,
         [0, 0.3, 1],
@@ -120,12 +428,12 @@ const BrandLogo = memo(
       const glowScale = interpolate(
         animationProgress.value,
         [0, 0.7, 1],
-        [0, 1.5, 1],
+        [0, 1.8, 1.2],
       );
       const glowOpacity = interpolate(
         animationProgress.value,
         [0, 0.5, 1],
-        [0, 0.3, 0.15],
+        [0, 0.45, 0.25],
       );
 
       return {
@@ -134,21 +442,130 @@ const BrandLogo = memo(
       };
     });
 
+    const haloStyle = useAnimatedStyle(() => {
+      const spin = interpolate(haloProgress.value, [0, 1], [0, 360]);
+      const haloOpacity = interpolate(
+        animationProgress.value,
+        [0, 1],
+        [0, 0.6],
+      );
+      const scale = interpolate(animationProgress.value, [0, 1], [0.8, 1]);
+
+      return {
+        opacity: haloOpacity,
+        transform: [{ rotate: `${spin}deg` }, { scale }],
+      };
+    });
+
+    const innerRingStyle = useAnimatedStyle(() => {
+      const spin = interpolate(haloProgress.value, [0, 1], [360, 0]);
+      const ringOpacity = interpolate(
+        animationProgress.value,
+        [0, 1],
+        [0, 0.4],
+      );
+
+      return {
+        opacity: ringOpacity,
+        transform: [{ rotate: `${spin}deg` }],
+      };
+    });
+
+    const orbitDotOneStyle = useAnimatedStyle(() => {
+      const angle = interpolate(orbitProgress.value, [0, 1], [0, Math.PI * 2]);
+      const radius = 65;
+      return {
+        transform: [
+          { translateX: Math.cos(angle) * radius },
+          { translateY: Math.sin(angle) * radius },
+        ],
+        opacity: interpolate(animationProgress.value, [0, 1], [0, 1]),
+        scale: interpolate(sparkleProgress.value, [0, 0.5, 1], [1, 1.4, 1]),
+      };
+    });
+
+    const orbitDotTwoStyle = useAnimatedStyle(() => {
+      const angle = interpolate(
+        orbitProgress.value,
+        [0, 1],
+        [Math.PI, Math.PI * 3],
+      );
+      const radius = 50;
+      return {
+        transform: [
+          { translateX: Math.cos(angle) * radius },
+          { translateY: Math.sin(angle) * radius },
+        ],
+        opacity: interpolate(animationProgress.value, [0, 1], [0, 0.85]),
+      };
+    });
+
+    const sweepStyle = useAnimatedStyle(() => ({
+      opacity: interpolate(animationProgress.value, [0, 1], [0, 0.55]),
+      transform: [
+        { translateX: interpolate(sweepProgress.value, [0, 1], [-100, 100]) },
+        { rotate: "22deg" },
+        {
+          scaleY: interpolate(sweepProgress.value, [0, 0.5, 1], [0.3, 1, 0.3]),
+        },
+      ],
+    }));
+
     return (
       <Animated.View style={[styles.logoContainer, logoStyle]}>
-        {/* Dynamic Glow Effect */}
+        {/* Multi-layer Glow */}
         <Animated.View style={[styles.logoGlow, glowStyle]} />
-        <Image
-          source={require("../assets/images/Logo.png")}
-          style={styles.logoCore}
+        <Animated.View
+          style={[
+            styles.logoGlow,
+            {
+              ...styles.logoGlow,
+              opacity: 0.3,
+              transform: [{ scale: 1.3 }],
+              backgroundColor: "rgba(232, 168, 56, 0.15)",
+            },
+          ]}
         />
+
+        <Animated.View style={[styles.logoHalo, haloStyle]} />
+        <Animated.View style={[styles.logoInnerHalo, innerRingStyle]} />
+
+        {/* Orbiting Particles */}
+        <Animated.View
+          style={[styles.orbitDot, styles.orbitDotPrimary, orbitDotOneStyle]}
+        />
+        <Animated.View
+          style={[styles.orbitDot, styles.orbitDotSecondary, orbitDotTwoStyle]}
+        />
+
+        {/* Logo Core with Rounded Container (Expo-compatible mask alternative) */}
+        <View style={styles.logoImageMask}>
+          <Image
+            source={require("../assets/images/Logo.png")}
+            style={styles.logoCore}
+            resizeMode="contain"
+          />
+          <Animated.View style={[styles.logoSweep, sweepStyle]} />
+        </View>
 
         {/* Signature Sparkle */}
         <Animated.View
-          entering={ZoomIn.delay(600)}
+          entering={ZoomIn.delay(500).springify()}
           style={styles.sparkleContainer}
         >
-          <View style={styles.sparkle} />
+          <Animated.View
+            style={[
+              styles.sparkle,
+              {
+                opacity: sparkleProgress.value,
+                transform: [
+                  {
+                    scale: interpolate(sparkleProgress.value, [0, 1], [0.5, 1]),
+                  },
+                ],
+              },
+            ]}
+          />
           <View style={[styles.sparkle, styles.sparklePulse]} />
         </Animated.View>
       </Animated.View>
@@ -158,26 +575,37 @@ const BrandLogo = memo(
 
 BrandLogo.displayName = "BookMySessionLogo";
 
-// ─── Component: Animated Loading Bar with Brand Personality ──────────────────
+// ─── Premium Loading Bar ────────────────────────────────────────────────────
 const BrandLoader = memo(({ progress }: { progress: SharedValue<number> }) => {
-  const barStyle = useAnimatedStyle(() => ({
-    width: `${progress.value * 100}%`,
-    backgroundColor:
-      progress.value >= 1 ? brand.colors.gold.light : brand.colors.gold.DEFAULT,
-  }));
-
-  const statusStyle = useAnimatedStyle(() => {
+  const barStyle = useAnimatedStyle(() => {
+    const widthPct = progress.value * 100;
     return {
-      opacity: interpolate(progress.value, [0, 0.3, 0.7, 1], [0.7, 1, 1, 0]),
+      width: `${widthPct}%`,
+      backgroundColor:
+        progress.value >= 1
+          ? brand.colors.gold.light
+          : brand.colors.gold.DEFAULT,
     };
   });
+
+  const shimmerStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(progress.value, [0, 1], [-120, 260]) },
+    ],
+    opacity: interpolate(progress.value, [0, 0.1, 0.9, 1], [0, 0.4, 0.4, 0]),
+  }));
+
+  const statusStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.3, 0.7, 1], [0.7, 1, 1, 0]),
+    transform: [{ scale: interpolate(progress.value, [0.9, 1], [1, 1.05]) }],
+  }));
 
   return (
     <View style={styles.loaderContainer}>
       <View style={styles.loaderTrack}>
         <Animated.View style={[styles.loaderBar, barStyle]} />
-        {/* Shimmer Effect */}
-        <View style={styles.loaderShimmer} />
+        {/* Animated Shimmer */}
+        <Animated.View style={[styles.loaderShimmer, shimmerStyle]} />
       </View>
 
       <Animated.Text style={[styles.loaderText, statusStyle]}>
@@ -189,7 +617,7 @@ const BrandLoader = memo(({ progress }: { progress: SharedValue<number> }) => {
 
 BrandLoader.displayName = "BrandLoader";
 
-// ─── Main Splash Screen Component ────────────────────────────────────────────
+// ─── Main Splash Screen (100% Expo Compatible) ──────────────────────────────
 export default function SplashScreen() {
   const logoProgress = useSharedValue(0);
   const contentProgress = useSharedValue(0);
@@ -200,14 +628,13 @@ export default function SplashScreen() {
     if (isTransitioning.current) return;
     isTransitioning.current = true;
 
-    // Haptic feedback for premium feel
     if (Platform.OS !== "web") {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
     try {
       const authenticated = await isAuthenticated();
-      // router.replace(authenticated ? "/(tabs)/home" : "/onboarding");
+      router.replace(authenticated ? "/(tabs)/home" : "/onboarding");
     } catch (error) {
       console.error("Navigation error:", error);
       router.replace("/auth/login");
@@ -215,49 +642,48 @@ export default function SplashScreen() {
   }, []);
 
   useEffect(() => {
-    // Sequence animations for brand storytelling
+    // Staggered brand animation sequence
     logoProgress.value = withSpring(1, {
-      damping: 15,
-      mass: 1,
-      overshootClamping: false,
+      damping: 20,
+      stiffness: 150,
+      mass: 0.8,
     });
 
     contentProgress.value = withDelay(
-      300,
+      250,
       withTiming(1, {
-        duration: brand.animation.slow,
+        duration: brand.animation.slower,
         easing: Easing.out(Easing.cubic),
       }),
     );
 
     loaderProgress.value = withDelay(
-      600,
+      500,
       withTiming(1, {
-        duration: 2800,
+        duration: 3200,
         easing: Easing.bezier(0.4, 0, 0.2, 1),
       }),
     );
 
-    // Auto-advance after brand moment
     const timer = setTimeout(() => {
       runOnJS(handleNavigation)();
-    }, 3800);
+    }, 4200);
 
     return () => clearTimeout(timer);
   }, [handleNavigation, logoProgress, contentProgress, loaderProgress]);
 
-  // Animated styles for content fade-in
   const contentStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(contentProgress.value, [0, 0.5, 1], [0, 0.3, 1]),
+    opacity: interpolate(contentProgress.value, [0, 0.4, 1], [0, 0.2, 1]),
     transform: [
-      { translateY: interpolate(contentProgress.value, [0, 1], [30, 0]) },
+      { translateY: interpolate(contentProgress.value, [0, 1], [40, 0]) },
+      { scale: interpolate(contentProgress.value, [0, 1], [0.98, 1]) },
     ],
   }));
 
   const footerStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(contentProgress.value, [0.7, 1], [0, 1]),
+    opacity: interpolate(contentProgress.value, [0.6, 1], [0, 1]),
     transform: [
-      { translateY: interpolate(contentProgress.value, [0.7, 1], [20, 0]) },
+      { translateY: interpolate(contentProgress.value, [0.6, 1], [25, 0]) },
     ],
   }));
 
@@ -273,31 +699,19 @@ export default function SplashScreen() {
         backgroundColor="transparent"
       />
 
-      {/* ── Layered Background ── */}
-      <LinearGradient
-        colors={[
-          brand.colors.navy[900],
-          brand.colors.navy[800],
-          brand.colors.navy[700],
-        ]}
-        style={StyleSheet.absoluteFill}
-      />
-
+      {/* Layered Background - All Expo Compatible */}
+      <MeshBackground />
       <ParticleBackground />
-
-      {/* Subtle Radial Gradient Overlay */}
       <View style={styles.radialOverlay} />
-
-      {/* Brand Pattern Watermark */}
       <View style={styles.brandPattern} pointerEvents="none" />
 
-      {/* ── Main Content ── */}
+      {/* ── Main Content (TEXTS 100% PRESERVED) ── */}
       <Animated.View style={[styles.content, contentStyle]}>
         <BrandLogo animationProgress={logoProgress} />
 
         <View style={styles.textBlock}>
           <Animated.Text
-            entering={FadeInUp.delay(500).springify()}
+            entering={FadeInUp.delay(450).springify()}
             style={styles.brandName}
             accessible={true}
             accessibilityRole="header"
@@ -306,7 +720,7 @@ export default function SplashScreen() {
           </Animated.Text>
 
           <Animated.View
-            entering={FadeInUp.delay(700)}
+            entering={FadeInUp.delay(650)}
             style={styles.taglineContainer}
           >
             <View style={styles.taglineDivider} />
@@ -314,12 +728,16 @@ export default function SplashScreen() {
             <View style={styles.taglineDivider} />
           </Animated.View>
 
-          {/* Brand Value Props */}
+          {/* Brand Value Props - Texts Exactly As-Is */}
           <Animated.View
-            entering={FadeInUp.delay(900)}
+            entering={FadeInUp.delay(850)}
             style={styles.valueProps}
           >
-            {["Quality Education", "Trusted Teachers", "Premium Experience"].map((prop, i) => (
+            {[
+              "Quality Education",
+              "Trusted Teachers",
+              "Premium Experience",
+            ].map((prop) => (
               <View key={prop} style={styles.valueProp}>
                 <View style={styles.valuePropDot} />
                 <Text style={styles.valuePropText}>{prop}</Text>
@@ -333,172 +751,229 @@ export default function SplashScreen() {
       <Animated.View style={[styles.footer, footerStyle]}>
         <BrandLoader progress={loaderProgress} />
 
-        <BlurView intensity={20} tint="dark" style={styles.footerBadge}>
-          <Text style={styles.copyright}>© {new Date().getFullYear()} BOOKMYSESSION.IN</Text>
+        <BlurView intensity={25} tint="dark" style={styles.footerBadge}>
+          <Text style={styles.copyright}>
+            © {new Date().getFullYear()} BOOKMYSESSION.IN
+          </Text>
           <View style={styles.secureBadge}>
             <Text style={styles.secureText}>🔒 SECURE</Text>
           </View>
         </BlurView>
       </Animated.View>
-
-      {/* ── Completion Overlay (Optional) ── */}
-      {/* {loaderProgress.value >= 1 && (
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          style={styles.completionOverlay}
-          pointerEvents="none"
-        >
-          <Text style={styles.completionText}>Let&apos;s Begin</Text>
-        </Animated.View>
-      )} */}
     </View>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Styles (Expo-Optimized) ────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: brand.colors.navy[900],
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   // Background Elements
   particle: {
-    position: "absolute" as const,
-    backgroundColor: "rgba(232, 168, 56, 0.6)",
+    position: "absolute",
     borderRadius: 999,
   },
   radialOverlay: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.1,
+    backgroundColor: "rgba(2,8,23,0.3)",
+  },
+  vignette: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(1,4,9,0.6)",
   },
   brandPattern: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.03,
+    opacity: 0.02,
+  },
+  meshOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.15,
   },
 
-  // Logo Styles
+  // Abstract Shapes (CSS-only, no external libs)
+  abstractShape: {
+    position: "absolute",
+  },
+  diamond: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    transform: [{ rotate: "45deg" }],
+  },
+  hexagon: {
+    width: 70,
+    height: 70,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    backgroundColor: "transparent",
+    transform: [{ rotate: "30deg" }],
+  },
+  triangle: {
+    width: 0,
+    height: 0,
+    backgroundColor: "transparent",
+    borderLeftWidth: 25,
+    borderRightWidth: 25,
+    borderBottomWidth: 43,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: brand.colors.gold.glow,
+  },
+
+  // Mesh Background Orbs
+  meshOrb: {
+    position: "absolute",
+    width: width * 0.85,
+    height: width * 0.85,
+    borderRadius: (width * 0.85) / 2,
+    opacity: 0.4,
+  },
+  orbGold: { top: -100, left: -60 },
+  orbNavy: { bottom: -60, right: -60, opacity: 0.5 },
+  pulseGlow: {
+    position: "absolute",
+    width: width * 1.2,
+    height: width * 1.2,
+    borderRadius: (width * 1.2) / 2,
+    top: height * 0.5 - width * 0.6,
+    left: width * 0.5 - width * 0.6,
+  },
+  gridContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "space-around",
+    opacity: 0.05,
+  },
+  gridLineH: {
+    width: "100%",
+    height: 0.5,
+    backgroundColor: brand.colors.gold.DEFAULT,
+  },
+  gridLineV: {
+    height: "100%",
+    width: 0.5,
+    backgroundColor: brand.colors.gold.DEFAULT,
+    position: "absolute",
+    left: 0,
+  },
+
+  // Brand Logo
   logoContainer: {
-    width: 120,
-    height: 120,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    marginBottom: brand.spacing.xl,
+    width: 150,
+    height: 150,
+    justifyContent: "center",
+    alignItems: "center",
   },
   logoGlow: {
-    position: "absolute" as const,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
+    position: "absolute",
+    width: 130,
+    height: 130,
     backgroundColor: brand.colors.gold.glow,
+    borderRadius: 65,
+  },
+  logoHalo: {
+    position: "absolute",
+    width: 142,
+    height: 142,
+    borderRadius: 71,
+    borderWidth: 1.5,
+    borderColor: "rgba(244, 197, 102, 0.55)",
+  },
+  logoInnerHalo: {
+    position: "absolute",
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.28)",
+    borderStyle: "dashed",
+  },
+  orbitDot: {
+    position: "absolute",
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+  },
+  orbitDotPrimary: {
+    backgroundColor: "rgba(244, 197, 102, 1)",
+  },
+  orbitDotSecondary: {
+    width: 7,
+    height: 7,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+  },
+  logoImageMask: {
+    width: 90,
+    height: 90,
+    borderRadius: 24,
+    overflow: "hidden", // Native masking alternative
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent",
   },
   logoCore: {
-    width: 80,
-    height: 80,
-    position: "relative" as const,
+    width: 86,
+    height: 86,
   },
-  logoStem: {
-    position: "absolute" as const,
-    left: 18,
-    top: 12,
-    width: 16,
-    height: 56,
-    borderRadius: 8,
-    zIndex: 2,
-  },
-  logoCurve: {
-    position: "absolute" as const,
-    borderWidth: 14,
-    borderRadius: 30,
-    borderColor: "transparent",
-  },
-  logoCurveTop: {
-    left: 18,
-    top: 0,
-    width: 54,
-    height: 54,
-    borderLeftColor: "transparent",
-    borderBottomColor: "transparent",
-    borderTopColor: brand.colors.white,
-    borderRightColor: brand.colors.white,
-    transform: [{ rotate: "45deg" }],
-    zIndex: 1,
-  },
-  logoCurveBottom: {
-    left: 18,
-    bottom: 0,
-    width: 58,
-    height: 58,
-    borderLeftColor: "transparent",
-    borderTopColor: "transparent",
-    borderBottomColor: brand.colors.white,
-    borderRightColor: brand.colors.white,
-    transform: [{ rotate: "-45deg" }],
-    opacity: 0.92,
-    zIndex: 1,
-  },
-  logoAccent: {
-    position: "absolute" as const,
-    right: -2,
-    top: "50%" as any,
-    width: 24,
-    height: 3,
-    backgroundColor: brand.colors.gold.light,
-    borderRadius: 2,
-    transform: [{ rotate: "-15deg" }],
-    zIndex: 3,
+  logoSweep: {
+    position: "absolute",
+    width: 30,
+    height: 140,
+    backgroundColor: "rgba(255, 255, 255, 0.4)",
   },
   sparkleContainer: {
-    position: "absolute" as const,
-    top: 8,
-    right: 8,
-    zIndex: 4,
+    position: "absolute",
+    top: 5,
+    right: 5,
+    zIndex: 10,
   },
   sparkle: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: brand.colors.gold.light,
     transform: [{ rotate: "45deg" }],
   },
   sparklePulse: {
-    position: "absolute" as const,
+    position: "absolute",
     backgroundColor: "transparent",
     borderWidth: 2,
     borderColor: brand.colors.gold.light,
     opacity: 0,
   },
 
-  // Typography & Content
+  // Content & Typography (TEXTS UNCHANGED)
   content: {
     flex: 1,
-    justifyContent: "center" as const,
-    alignItems: "center" as const,
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: brand.spacing.lg,
   },
   textBlock: {
-    alignItems: "center" as const,
-    maxWidth: width * 0.85,
+    alignItems: "center",
+    maxWidth: width * 0.9,
   },
   brandName: {
     fontSize: 36,
-    fontWeight: "900" as const,
+    fontWeight: "900",
     letterSpacing: -1.5,
     color: brand.colors.white,
-    textAlign: "center" as const,
+    textAlign: "center",
     fontFamily:
       Platform.OS === "ios"
         ? "HelveticaNeue-CondensedBlack"
         : "sans-serif-black",
-  } as any,
+  },
   brandAccent: {
     color: brand.colors.gold.DEFAULT,
   },
   taglineContainer: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: brand.spacing.md,
     gap: brand.spacing.sm,
   },
@@ -506,24 +981,24 @@ const styles = StyleSheet.create({
     width: 24,
     height: 1,
     backgroundColor: brand.colors.gold.DEFAULT,
-    opacity: 0.6,
+    opacity: 0.7,
   },
   tagline: {
     fontSize: 9,
-    fontWeight: "700" as const,
+    fontWeight: "700",
     letterSpacing: 3,
     color: brand.colors.muted,
-  } as any,
+  },
   valueProps: {
-    flexDirection: "row" as const,
+    flexDirection: "row",
     gap: brand.spacing.md,
     marginTop: brand.spacing.lg,
-    flexWrap: "wrap" as const,
-    justifyContent: "center" as const,
+    flexWrap: "wrap",
+    justifyContent: "center",
   },
   valueProp: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
+    flexDirection: "row",
+    alignItems: "center",
     gap: brand.spacing.xs,
   },
   valuePropDot: {
@@ -535,108 +1010,81 @@ const styles = StyleSheet.create({
   valuePropText: {
     fontSize: 11,
     color: brand.colors.muted,
-    fontWeight: "600" as const,
+    fontWeight: "600",
     letterSpacing: 0.5,
-  } as any,
+  },
 
   // Footer & Loader
   footer: {
-    position: "absolute" as const,
+    position: "absolute",
     bottom: brand.spacing.xl,
     width: "100%",
-    alignItems: "center" as const,
+    alignItems: "center",
     paddingHorizontal: brand.spacing.lg,
   },
   loaderContainer: {
     width: "100%",
-    maxWidth: 320,
-    alignItems: "center" as const,
+    maxWidth: 340,
+    alignItems: "center",
     marginBottom: brand.spacing.lg,
   },
   loaderTrack: {
     width: "100%",
-    height: 3,
+    height: 4,
     backgroundColor: brand.colors.subtle,
-    borderRadius: 2,
-    overflow: "hidden" as const,
+    borderRadius: 3,
+    overflow: "hidden",
   },
   loaderBar: {
-    height: "100%" as any,
-    borderRadius: 2,
+    height: "100%",
+    borderRadius: 3,
   },
   loaderShimmer: {
-    position: "absolute" as const,
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    opacity: 0.3,
+    backgroundColor: "rgba(255,255,255,0.3)",
+    width: "30%",
   },
   loaderText: {
     fontSize: 9,
-    fontWeight: "700" as const,
+    fontWeight: "700",
     letterSpacing: 3,
     color: brand.colors.muted,
     marginTop: brand.spacing.sm,
-    textAlign: "center" as const,
-  } as any,
+    textAlign: "center",
+  },
   footerBadge: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
+    flexDirection: "row",
+    alignItems: "center",
     gap: brand.spacing.md,
     paddingHorizontal: brand.spacing.md,
     paddingVertical: brand.spacing.xs,
-    borderRadius: 20,
-    overflow: "hidden" as const,
+    borderRadius: 24,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: brand.colors.subtle,
   },
   copyright: {
     fontSize: 10,
-    color: "rgba(255,255,255,0.3)",
-    fontWeight: "500" as const,
+    color: "rgba(255,255,255,0.35)",
+    fontWeight: "500",
     letterSpacing: 0.5,
-  } as any,
+  },
   secureBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: "rgba(232, 168, 56, 0.15)",
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    backgroundColor: "rgba(232, 168, 56, 0.2)",
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(232, 168, 56, 0.3)",
+    borderColor: "rgba(232, 168, 56, 0.4)",
   },
   secureText: {
     fontSize: 8,
     color: brand.colors.gold.light,
-    fontWeight: "700" as const,
+    fontWeight: "700",
     letterSpacing: 1,
-  } as any,
-
-  // Completion Overlay
-  completionOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(2, 8, 23, 0.95)",
-    justifyContent: "center" as const,
-    alignItems: "center" as const,
-    zIndex: 100,
   },
-  completionText: {
-    fontSize: 20,
-    fontWeight: "700" as const,
-    color: brand.colors.gold.DEFAULT,
-    letterSpacing: 2,
-    textTransform: "uppercase" as const,
-  } as any,
 });
-
-// ─── Global Animations (Add to app.json or index.css for web) ───────────────
-// For React Native, these would be handled via Reanimated or react-native-animatable
-// For web support, add to your global styles:
-/*
-@keyframes float {
-  0%, 100% { transform: translateY(0) translateX(0); opacity: 0.6; }
-  50% { transform: translateY(-20px) translateX(5px); opacity: 1; }
-}
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-*/

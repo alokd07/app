@@ -13,6 +13,7 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  Image,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -289,10 +290,12 @@ export default function LoginScreen() {
               colors={["rgba(232,168,56,0.22)", "rgba(232,168,56,0.08)"]}
               style={styles.logoMark}
             >
-              <Text style={styles.logoIcon}>✦</Text>
+              <Image source={require("../../assets/images/Logo.png")} style={styles.logoIcon} />
             </LinearGradient>
             {/* Orbit dot */}
-            <View style={styles.orbitDot} />
+            <View style={styles.orbitDot}>
+              <Ionicons name="sparkles" size={10} color={palette.gold} />
+            </View>
           </View>
 
           <Text style={styles.heroTitle}>BookMySession</Text>
@@ -552,19 +555,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logoIcon: {
-    fontSize: 24,
+    height: 28,
+    width: 28,
+    resizeMode: "contain",
     color: palette.gold,
   },
   orbitDot: {
     position: "absolute",
-    width: 8,
-    height: 8,
+    // width: 8,
+    // height: 8,
     borderRadius: 4,
-    backgroundColor: palette.gold,
-    top: -2,
-    right: -2,
-    borderWidth: 2,
-    borderColor: palette.navyMid,
+    // backgroundColor: palette.gold,
+    bottom: 2,
+    right: 0,
+    // borderWidth: 2,
+    // borderColor: palette.navyMid,
   },
   heroTitle: {
     fontSize: 28,
