@@ -106,7 +106,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar backgroundColor="transparent" translucent barStyle="light-content" />
 
       {/* ── Background Parallax Image ── */}
       <View style={StyleSheet.absoluteFill}>

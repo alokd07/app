@@ -416,6 +416,16 @@ export default function VerifyOTPScreen() {
       });
       console.log("OTP verification response:", res.data.data);
       if (res.data.data) {
+        if (res.data.data.exist === false) {
+          // New user flow - navigate to profile setup with token and phone
+          const { token } = res.data.data;
+          await saveToken(token);
+          router.replace({
+            pathname: "/profile-setup",
+            query: { phone, token },
+          });
+          return;
+        }
         const { token, user } = res.data.data;
         await saveToken(token);
         await saveUserData(user);
