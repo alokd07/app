@@ -6,6 +6,7 @@ import {
   Dimensions,
   StatusBar,
   Platform,
+  Image,
 } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -137,40 +138,10 @@ const BrandLogo = memo(
       <Animated.View style={[styles.logoContainer, logoStyle]}>
         {/* Dynamic Glow Effect */}
         <Animated.View style={[styles.logoGlow, glowStyle]} />
-
-        {/* Geometric "B" Construction */}
-        <View style={styles.logoCore}>
-          {/* Vertical Stem - Gold Gradient */}
-          <LinearGradient
-            colors={[
-              brand.colors.gold.light,
-              brand.colors.gold.DEFAULT,
-              brand.colors.gold.dark,
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.logoStem}
-          />
-
-          {/* Upper Curve */}
-          <View style={[styles.logoCurve, styles.logoCurveTop]}>
-            <LinearGradient
-              colors={[brand.colors.white, "rgba(255,255,255,0.7)"]}
-              style={StyleSheet.absoluteFill}
-            />
-          </View>
-
-          {/* Lower Curve */}
-          <View style={[styles.logoCurve, styles.logoCurveBottom]}>
-            <LinearGradient
-              colors={[brand.colors.white, "rgba(255,255,255,0.5)"]}
-              style={StyleSheet.absoluteFill}
-            />
-          </View>
-
-          {/* Premium Accent Line */}
-          <View style={styles.logoAccent} />
-        </View>
+        <Image
+          source={require("../assets/images/Logo.png")}
+          style={styles.logoCore}
+        />
 
         {/* Signature Sparkle */}
         <Animated.View
@@ -185,7 +156,7 @@ const BrandLogo = memo(
   },
 );
 
-BrandLogo.displayName = "BrandLogo";
+BrandLogo.displayName = "BookMySessionLogo";
 
 // ─── Component: Animated Loading Bar with Brand Personality ──────────────────
 const BrandLoader = memo(({ progress }: { progress: SharedValue<number> }) => {
@@ -236,7 +207,7 @@ export default function SplashScreen() {
 
     try {
       const authenticated = await isAuthenticated();
-      router.replace(authenticated ? "/(tabs)/home" : "/onboarding");
+      // router.replace(authenticated ? "/(tabs)/home" : "/onboarding");
     } catch (error) {
       console.error("Navigation error:", error);
       router.replace("/auth/login");
@@ -348,7 +319,7 @@ export default function SplashScreen() {
             entering={FadeInUp.delay(900)}
             style={styles.valueProps}
           >
-            {["Expert-Led", "Verified", "Premium"].map((prop, i) => (
+            {["Quality Education", "Trusted Teachers", "Premium Experience"].map((prop, i) => (
               <View key={prop} style={styles.valueProp}>
                 <View style={styles.valuePropDot} />
                 <Text style={styles.valuePropText}>{prop}</Text>
@@ -363,7 +334,7 @@ export default function SplashScreen() {
         <BrandLoader progress={loaderProgress} />
 
         <BlurView intensity={20} tint="dark" style={styles.footerBadge}>
-          <Text style={styles.copyright}>© 2026 BOOKMYSESSION.IN</Text>
+          <Text style={styles.copyright}>© {new Date().getFullYear()} BOOKMYSESSION.IN</Text>
           <View style={styles.secureBadge}>
             <Text style={styles.secureText}>🔒 SECURE</Text>
           </View>
@@ -371,7 +342,7 @@ export default function SplashScreen() {
       </Animated.View>
 
       {/* ── Completion Overlay (Optional) ── */}
-      {loaderProgress.value >= 1 && (
+      {/* {loaderProgress.value >= 1 && (
         <Animated.View
           entering={FadeIn.duration(200)}
           style={styles.completionOverlay}
@@ -379,7 +350,7 @@ export default function SplashScreen() {
         >
           <Text style={styles.completionText}>Let&apos;s Begin</Text>
         </Animated.View>
-      )}
+      )} */}
     </View>
   );
 }
