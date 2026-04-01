@@ -422,8 +422,8 @@ export default function VerifyOTPScreen() {
           const { token } = res.data.data;
           await saveToken(token);
           router.replace({
-            pathname: "/profile-setup",
-            query: { phone, token },
+            pathname: "/student-profile-setup",
+            params: { phone },
           });
           return;
         }
