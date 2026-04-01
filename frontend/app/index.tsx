@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, memo, useCallback } from "react";
+import React, { useEffect, useRef, memo, useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -26,9 +25,11 @@ import Animated, {
   SharedValue,
   withRepeat,
   withSequence,
+  useAnimatedReaction,
 } from "react-native-reanimated";
 import { isAuthenticated } from "../src/services/auth";
 import * as Haptics from "expo-haptics";
+import SafeBlurView from "../components/SafeBlurView";
 
 const { width, height } = Dimensions.get("window");
 
@@ -310,16 +311,12 @@ const MeshBackground = memo(() => {
       <AbstractGeometry />
 
       {/* Glass Blur Overlay (Expo Blur) */}
-      {Platform.OS === "ios" ? (
-        <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-      ) : (
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: "rgba(2, 8, 23, 0.75)" },
-          ]}
-        />
-      )}
+      <SafeBlurView
+        intensity={60}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
+        fallbackColor="rgba(2, 8, 23, 0.75)"
+      />
 
       {/* Radial Vignette */}
       <View style={styles.vignette} />
@@ -511,6 +508,13 @@ const BrandLogo = memo(
       ],
     }));
 
+    const sparkleStyle = useAnimatedStyle(() => ({
+      opacity: sparkleProgress.value,
+      transform: [
+        { scale: interpolate(sparkleProgress.value, [0, 1], [0.5, 1]) },
+      ],
+    }));
+
     return (
       <Animated.View style={[styles.logoContainer, logoStyle]}>
         {/* Multi-layer Glow */}
@@ -553,19 +557,7 @@ const BrandLogo = memo(
           entering={ZoomIn.delay(500).springify()}
           style={styles.sparkleContainer}
         >
-          <Animated.View
-            style={[
-              styles.sparkle,
-              {
-                opacity: sparkleProgress.value,
-                transform: [
-                  {
-                    scale: interpolate(sparkleProgress.value, [0, 1], [0.5, 1]),
-                  },
-                ],
-              },
-            ]}
-          />
+          <Animated.View style={[styles.sparkle, sparkleStyle]} />
           <View style={[styles.sparkle, styles.sparklePulse]} />
         </Animated.View>
       </Animated.View>
@@ -577,6 +569,18 @@ BrandLogo.displayName = "BookMySessionLogo";
 
 // ─── Premium Loading Bar ────────────────────────────────────────────────────
 const BrandLoader = memo(({ progress }: { progress: SharedValue<number> }) => {
+  const [isReady, setIsReady] = useState(false);
+
+  useAnimatedReaction(
+    () => progress.value >= 1,
+    (ready, prevReady) => {
+      if (ready !== prevReady) {
+        runOnJS(setIsReady)(ready);
+      }
+    },
+    [progress],
+  );
+
   const barStyle = useAnimatedStyle(() => {
     const widthPct = progress.value * 100;
     return {
@@ -609,7 +613,7 @@ const BrandLoader = memo(({ progress }: { progress: SharedValue<number> }) => {
       </View>
 
       <Animated.Text style={[styles.loaderText, statusStyle]}>
-        {progress.value >= 1 ? "✓ READY" : "INITIALIZING SECURE GATEWAY"}
+        {isReady ? "✓ READY" : "INITIALIZING SECURE GATEWAY"}
       </Animated.Text>
     </View>
   );
@@ -751,14 +755,19 @@ export default function SplashScreen() {
       <Animated.View style={[styles.footer, footerStyle]}>
         <BrandLoader progress={loaderProgress} />
 
-        <BlurView intensity={25} tint="dark" style={styles.footerBadge}>
+        <SafeBlurView
+          intensity={25}
+          tint="dark"
+          style={styles.footerBadge}
+          fallbackColor="rgba(2, 8, 23, 0.78)"
+        >
           <Text style={styles.copyright}>
             © {new Date().getFullYear()} BOOKMYSESSION.IN
           </Text>
           <View style={styles.secureBadge}>
             <Text style={styles.secureText}>🔒 SECURE</Text>
           </View>
-        </BlurView>
+        </SafeBlurView>
       </Animated.View>
     </View>
   );

@@ -407,6 +407,12 @@ export default function VerifyOTPScreen() {
       Alert.alert("Invalid OTP", "Please enter a valid 6-digit OTP");
       return;
     }
+    router.replace({
+      pathname: "/student-profile-setup",
+      params: { phone },
+    });
+
+    return;
     setLoading(true);
 
     try {

@@ -1,992 +1,1260 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
-  ActivityIndicator,
-  Platform,
+  ScrollView,
+  Pressable,
   Image,
-} from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../src/theme/colors';
-import apiClient from '../src/services/api';
-import { saveUserData } from '../src/services/auth';
+  Platform,
+  StatusBar,
+} from "react-native";
+import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
+import DateTimePicker, {
+  DateTimePickerAndroid,
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  FadeInRight,
+  FadeOutLeft,
+} from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 
-// Types
-interface StudentProfile {
-  // Step 1
-  profilePhoto?: string;
-  firstName: string;
-  lastName: string;
-  dob: string;
-  gender: string;
-  phone: string;
-  
-  // Step 2
-  houseNo: string;
-  area: string;
-  landmark?: string;
-  pincode: string;
-  city: string;
-  state: string;
-  
-  // Step 3
-  schoolName: string;
-  schoolBoard: string;
-  schoolAddress: string;
-  class: string;
-  
-  // Step 4
-  budget: string;
-  preferredDays: string[];
-  duration: string;
-  teacherGender: string;
-  subjects: string[];
+// ─── Design Tokens ─────────────────────────────────────────────────────────────
+const P = {
+  navy: "#0D1B2A",
+  navyMid: "#112236",
+  gold: "#E8A838",
+  goldLight: "#F2C26A",
+  goldDim: "rgba(232,168,56,0.12)",
+  goldBorder: "rgba(232,168,56,0.30)",
+  cream: "#FAF7F2",
+  white: "#FFFFFF",
+  ink: "#0D1B2A",
+  muted: "#8A9BB0",
+  mutedDark: "#5A7080",
+  border: "#E4EAF2",
+  inputBg: "#F4F7FB",
+  success: "#27AE60",
+  successPale: "rgba(39,174,96,0.10)",
+  successBorder: "rgba(39,174,96,0.25)",
+};
+
+const STEPS = [
+  {
+    icon: "person-outline" as const,
+    title: "Personal Details",
+    sub: "Let's start with your basics",
+  },
+  {
+    icon: "home-outline" as const,
+    title: "Where should we meet?",
+    sub: "Your location helps match nearby tutors",
+  },
+  {
+    icon: "school-outline" as const,
+    title: "Educational Background",
+    sub: "Tell us about your school",
+  },
+  {
+    icon: "options-outline" as const,
+    title: "Your Preferences",
+    sub: "Help us find the perfect tutor",
+  },
+];
+
+const BOARDS = ["CBSE", "ICSE", "State", "IB", "IGCSE"];
+const CLASSES = ["8th", "9th", "10th", "11th", "12th"];
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const SUBJECTS = [
+  "Mathematics",
+  "Physics",
+  "Chemistry",
+  "Biology",
+  "English",
+  "Hindi",
+  "Computer Sci",
+];
+const DURATIONS = ["1h", "1.5h", "2h", "2.5h"];
+
+// ─── Shared Atoms ──────────────────────────────────────────────────────────────
+function SmartInput({
+  label,
+  icon,
+  ...props
+}: {
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+} & React.ComponentProps<typeof TextInput>) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={atom.inputWrap}>
+      <Text style={[atom.inputLabel, focused && { color: P.gold }]}>
+        {label}
+      </Text>
+      <View
+        style={[
+          atom.inputBox,
+          focused && atom.inputBoxFocused,
+          props.editable === false && atom.inputBoxDisabled,
+        ]}
+      >
+        <Ionicons name={icon} size={16} color={focused ? P.gold : P.muted} />
+        <TextInput
+          style={atom.inputField}
+          placeholderTextColor={P.muted}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          {...props}
+        />
+      </View>
+    </View>
+  );
 }
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const BOARDS = ['CBSE', 'ICSE', 'State Board', 'IB', 'IGCSE', 'Other'];
-const CLASSES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-const COMMON_SUBJECTS = ['Mathematics', 'Science', 'English', 'Hindi', 'Social Studies', 'Physics', 'Chemistry', 'Biology', 'Computer Science'];
+function PressableInput({
+  label,
+  icon,
+  value,
+  placeholder,
+  onPress,
+}: {
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  value: string;
+  placeholder?: string;
+  onPress: () => void;
+}) {
+  return (
+    <View style={atom.inputWrap}>
+      <Text style={atom.inputLabel}>{label}</Text>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          atom.inputBox,
+          pressed && atom.inputBoxFocused,
+        ]}
+      >
+        <Ionicons name={icon} size={16} color={P.muted} />
+        <Text style={[atom.inputField, !value && { color: P.muted }]}>
+          {value || placeholder}
+        </Text>
+        <Ionicons name="chevron-down" size={14} color={P.muted} />
+      </Pressable>
+    </View>
+  );
+}
 
+function Chip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
+      activeOpacity={0.8}
+      style={[atom.chip, active && atom.chipActive]}
+    >
+      {active && (
+        <Ionicons
+          name="checkmark"
+          size={10}
+          color={P.navy}
+          style={{ marginRight: 3 }}
+        />
+      )}
+      <Text style={[atom.chipText, active && atom.chipTextActive]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function OptionPill({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
+      activeOpacity={0.8}
+      style={[atom.pill, active && atom.pillActive]}
+    >
+      <Text style={[atom.pillText, active && atom.pillTextActive]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function SectionLabel({ text }: { text: string }) {
+  return <Text style={atom.sectionLabel}>{text}</Text>;
+}
+
+function CardDivider() {
+  return (
+    <View style={{ height: 1, backgroundColor: P.border, marginVertical: 6 }} />
+  );
+}
+
+function FormCard({ children }: { children: React.ReactNode }) {
+  return <View style={atom.card}>{children}</View>;
+}
+
+// ─── Step 1: Personal ──────────────────────────────────────────────────────────
+function Step1({
+  dob,
+  showIosPicker,
+  onDobPress,
+  onDateSelected,
+  onDismissIos,
+  profilePhoto,
+  onPickImage,
+  gender,
+  setGender,
+}: any) {
+  const fmt = (d: Date) =>
+    `${String(d.getDate()).padStart(2, "0")} / ${String(d.getMonth() + 1).padStart(2, "0")} / ${d.getFullYear()}`;
+
+  return (
+    <View style={{ gap: 14 }}>
+      {/* Avatar */}
+      <View style={{ alignItems: "center", marginBottom: 8 }}>
+        <TouchableOpacity
+          onPress={onPickImage}
+          activeOpacity={0.85}
+          style={{ position: "relative" }}
+        >
+          <LinearGradient
+            colors={[P.gold, P.goldLight, P.gold]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={step1.avatarRing}
+          >
+            {profilePhoto ? (
+              <Image source={{ uri: profilePhoto }} style={step1.avatarImg} />
+            ) : (
+              <View style={step1.avatarFallback}>
+                <Ionicons name="camera" size={26} color={P.gold} />
+              </View>
+            )}
+          </LinearGradient>
+          <View style={step1.avatarBadge}>
+            <Ionicons name="pencil" size={11} color={P.navy} />
+          </View>
+        </TouchableOpacity>
+        <Text style={step1.avatarHint}>Tap to add photo</Text>
+      </View>
+
+      <FormCard>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <SmartInput
+              label="FIRST NAME"
+              icon="person-outline"
+              placeholder="First"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <SmartInput
+              label="LAST NAME"
+              icon="person-outline"
+              placeholder="Last"
+            />
+          </View>
+        </View>
+        <CardDivider />
+        <PressableInput
+          label="DATE OF BIRTH"
+          icon="calendar-outline"
+          placeholder="DD / MM / YYYY"
+          value={dob ? fmt(dob) : ""}
+          onPress={onDobPress}
+        />
+        {Platform.OS === "ios" && showIosPicker && (
+          <View style={step1.iosPicker}>
+            <DateTimePicker
+              value={dob ?? new Date(2010, 0, 1)}
+              mode="date"
+              display="spinner"
+              maximumDate={new Date()}
+              onChange={onDateSelected}
+            />
+            <TouchableOpacity onPress={onDismissIos} style={step1.iosDoneBtn}>
+              <Text style={step1.iosDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </FormCard>
+
+      <FormCard>
+        <SectionLabel text="GENDER" />
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 2 }}>
+          {["Male", "Female", "Other"].map((g) => (
+            <OptionPill
+              key={g}
+              label={g}
+              active={gender === g}
+              onPress={() => setGender(g)}
+            />
+          ))}
+        </View>
+      </FormCard>
+
+      <FormCard>
+        <SmartInput
+          label="PHONE NUMBER"
+          icon="call-outline"
+          editable={false}
+          value="+91 98765 43210"
+        />
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 5,
+            marginTop: 6,
+          }}
+        >
+          <Ionicons name="shield-checkmark" size={12} color={P.success} />
+          <Text
+            style={{
+              fontSize: 11,
+              fontFamily: "Manrope_500Medium",
+              color: P.success,
+            }}
+          >
+            Verified via OTP
+          </Text>
+        </View>
+      </FormCard>
+    </View>
+  );
+}
+
+const step1 = StyleSheet.create({
+  avatarRing: {
+    width: 90,
+    height: 90,
+    borderRadius: 28,
+    padding: 3,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarImg: { width: 84, height: 84, borderRadius: 25 },
+  avatarFallback: {
+    width: 84,
+    height: 84,
+    borderRadius: 25,
+    backgroundColor: P.inputBg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: P.gold,
+    borderWidth: 2.5,
+    borderColor: P.cream,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarHint: {
+    fontSize: 11,
+    fontFamily: "Manrope_400Regular",
+    color: P.muted,
+    marginTop: 8,
+  },
+  iosPicker: {
+    backgroundColor: P.white,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: P.border,
+    overflow: "hidden",
+    marginTop: 8,
+  },
+  iosDoneBtn: {
+    alignItems: "center",
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: P.border,
+  },
+  iosDoneText: { fontSize: 14, fontFamily: "Manrope_700Bold", color: P.navy },
+});
+
+// ─── Step 2: Address ───────────────────────────────────────────────────────────
+function Step2() {
+  return (
+    <View style={{ gap: 14 }}>
+      <FormCard>
+        <SmartInput
+          label="HOUSE / FLAT NO."
+          icon="home-outline"
+          placeholder="e.g. 402, Green Valley Apts"
+        />
+        <CardDivider />
+        <SmartInput
+          label="AREA / LOCALITY"
+          icon="map-outline"
+          placeholder="e.g. Andheri West"
+        />
+        <CardDivider />
+        <SmartInput
+          label="LANDMARK (OPTIONAL)"
+          icon="flag-outline"
+          placeholder="Near City Mall"
+        />
+      </FormCard>
+      <FormCard>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <SmartInput
+              label="PINCODE"
+              icon="location-outline"
+              keyboardType="numeric"
+              maxLength={6}
+              placeholder="6 digits"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <SmartInput
+              label="CITY"
+              icon="business-outline"
+              editable={false}
+              value="Mumbai"
+            />
+          </View>
+        </View>
+        <CardDivider />
+        <SmartInput
+          label="STATE"
+          icon="map-outline"
+          editable={false}
+          value="Maharashtra"
+        />
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 5,
+            marginTop: 6,
+          }}
+        >
+          <Ionicons
+            name="information-circle-outline"
+            size={12}
+            color={P.muted}
+          />
+          <Text
+            style={{
+              fontSize: 11,
+              fontFamily: "Manrope_400Regular",
+              color: P.muted,
+            }}
+          >
+            City & state auto-filled from pincode
+          </Text>
+        </View>
+      </FormCard>
+    </View>
+  );
+}
+
+// ─── Step 3: Education ─────────────────────────────────────────────────────────
+function Step3({ board, setBoard, cls, setCls }: any) {
+  const [showCustom, setShowCustom] = useState(false);
+  return (
+    <View style={{ gap: 14 }}>
+      <FormCard>
+        <SmartInput
+          label="SCHOOL NAME"
+          icon="school-outline"
+          placeholder="Enter school name"
+        />
+        <CardDivider />
+        <SmartInput
+          label="SCHOOL ADDRESS"
+          icon="location-outline"
+          placeholder="Full school address"
+          multiline
+          numberOfLines={2}
+        />
+      </FormCard>
+      <FormCard>
+        <SectionLabel text="SCHOOL BOARD" />
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 8,
+            marginTop: 4,
+          }}
+        >
+          {[...BOARDS, "Other"].map((b) => (
+            <Chip
+              key={b}
+              label={b}
+              active={board === b}
+              onPress={() => {
+                setBoard(b);
+                setShowCustom(b === "Other");
+              }}
+            />
+          ))}
+        </View>
+        {showCustom && (
+          <>
+            <CardDivider />
+            <SmartInput
+              label="BOARD NAME"
+              icon="create-outline"
+              placeholder="Enter custom board"
+            />
+          </>
+        )}
+      </FormCard>
+      <FormCard>
+        <SectionLabel text="CLASS / STANDARD" />
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 8,
+            marginTop: 4,
+          }}
+        >
+          {CLASSES.map((c) => (
+            <Chip
+              key={c}
+              label={`Class ${c}`}
+              active={cls === c}
+              onPress={() => setCls(c)}
+            />
+          ))}
+        </View>
+      </FormCard>
+    </View>
+  );
+}
+
+// ─── Step 4: Preferences ───────────────────────────────────────────────────────
+function Step4({
+  days,
+  toggleDay,
+  teacherPref,
+  setTeacherPref,
+  subjects,
+  toggleSubject,
+  duration,
+  setDuration,
+}: any) {
+  const [customSub, setCustomSub] = useState("");
+  return (
+    <View style={{ gap: 14 }}>
+      <FormCard>
+        <SmartInput
+          label="BUDGET (₹ PER HOUR)"
+          icon="cash-outline"
+          placeholder="e.g. 500"
+          keyboardType="numeric"
+        />
+        <CardDivider />
+        <SectionLabel text="SESSION DURATION" />
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+          {DURATIONS.map((d) => (
+            <OptionPill
+              key={d}
+              label={d}
+              active={duration === d}
+              onPress={() => setDuration(d)}
+            />
+          ))}
+        </View>
+      </FormCard>
+      <FormCard>
+        <SectionLabel text="PREFERRED DAYS" />
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 8,
+            marginTop: 4,
+          }}
+        >
+          {DAYS.map((d) => (
+            <Chip
+              key={d}
+              label={d}
+              active={days.includes(d)}
+              onPress={() => toggleDay(d)}
+            />
+          ))}
+        </View>
+      </FormCard>
+      <FormCard>
+        <SectionLabel text="TEACHER PREFERENCE" />
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+          {["Male", "Female", "No Preference"].map((g) => (
+            <OptionPill
+              key={g}
+              label={g}
+              active={teacherPref === g}
+              onPress={() => setTeacherPref(g)}
+            />
+          ))}
+        </View>
+      </FormCard>
+      <FormCard>
+        <SectionLabel text="SUBJECTS NEEDED" />
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 8,
+            marginTop: 4,
+          }}
+        >
+          {SUBJECTS.map((s) => (
+            <Chip
+              key={s}
+              label={s}
+              active={subjects.includes(s)}
+              onPress={() => toggleSubject(s)}
+            />
+          ))}
+        </View>
+        <CardDivider />
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <TextInput
+            style={[atom.inputBox, { flex: 1 }]}
+            placeholder="Add custom subject..."
+            placeholderTextColor={P.muted}
+            value={customSub}
+            onChangeText={setCustomSub}
+          />
+          <TouchableOpacity
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 14,
+              backgroundColor: P.gold,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onPress={() => {
+              if (customSub.trim()) {
+                toggleSubject(customSub.trim());
+                setCustomSub("");
+              }
+            }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="add" size={22} color={P.navy} />
+          </TouchableOpacity>
+        </View>
+        {subjects.filter((s: string) => !SUBJECTS.includes(s)).length > 0 && (
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 8,
+              marginTop: 10,
+            }}
+          >
+            {subjects
+              .filter((s: string) => !SUBJECTS.includes(s))
+              .map((s: string) => (
+                <TouchableOpacity
+                  key={s}
+                  onPress={() => toggleSubject(s)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    borderRadius: 20,
+                    backgroundColor: P.inputBg,
+                    borderWidth: 1,
+                    borderColor: P.border,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontFamily: "Manrope_500Medium",
+                      color: P.ink,
+                    }}
+                  >
+                    {s}
+                  </Text>
+                  <Ionicons name="close" size={12} color={P.muted} />
+                </TouchableOpacity>
+              ))}
+          </View>
+        )}
+      </FormCard>
+    </View>
+  );
+}
+
+// ─── Main Screen ───────────────────────────────────────────────────────────────
 export default function StudentProfileSetup() {
-  const { phone: routePhone } = useLocalSearchParams<{ phone: string }>();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [pincodeLoading, setPincodeLoading] = useState(false);
-  
-  const [formData, setFormData] = useState<StudentProfile>({
-    profilePhoto: '',
-    firstName: '',
-    lastName: '',
-    dob: '',
-    gender: '',
-    phone: routePhone || '',
-    houseNo: '',
-    area: '',
-    landmark: '',
-    pincode: '',
-    city: '',
-    state: '',
-    schoolName: '',
-    schoolBoard: '',
-    schoolAddress: '',
-    class: '',
-    budget: '',
-    preferredDays: [],
-    duration: '',
-    teacherGender: '',
-    subjects: [],
-  });
+  const [step, setStep] = useState(1);
+  const [dob, setDob] = useState<Date | null>(null);
+  const [showIosDob, setShowIosDob] = useState(false);
+  const [board, setBoard] = useState("CBSE");
+  const [cls, setCls] = useState("10th");
+  const [days, setDays] = useState<string[]>(["Mon", "Wed"]);
+  const [teacherPref, setTeacherPref] = useState("Female");
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [duration, setDuration] = useState("1h");
+  const [gender, setGender] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
-  // Image picker
-  const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (!permissionResult.granted) {
-      Alert.alert('Permission Required', 'Please allow access to your photos');
+  const progress = useSharedValue(0.25);
+  useEffect(() => {
+    progress.value = withSpring(step / 4, { damping: 20 });
+  }, [progress, step]);
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%` as any,
+  }));
+
+  const onDateSelected = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === "android") {
+      if (event.type === "set" && selectedDate) setDob(selectedDate);
       return;
     }
+    if (selectedDate) setDob(selectedDate);
+  };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
+  const handleDobPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        value: dob ?? new Date(2010, 0, 1),
+        mode: "date",
+        maximumDate: new Date(),
+        onChange: onDateSelected,
+      });
+      return;
+    }
+    setShowIosDob(true);
+  };
+
+  const pickImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+    const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.5,
-      base64: true,
+      quality: 0.6,
     });
-
-    if (!result.canceled && result.assets[0].base64) {
-      setFormData(prev => ({ ...prev, profilePhoto: `data:image/jpeg;base64,${result.assets[0].base64}` }));
-    }
+    if (!res.canceled) setProfilePhoto(res.assets[0].uri);
   };
 
-  // Fetch city and state from pincode
-  const fetchLocationFromPincode = async (pincode: string) => {
-    if (pincode.length !== 6) return;
-    
-    setPincodeLoading(true);
-    try {
-      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
-      const data = await response.json();
-      
-      if (data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
-        const location = data[0].PostOffice[0];
-        setFormData(prev => ({
-          ...prev,
-          city: location.District,
-          state: location.State,
-        }));
-      } else {
-        Alert.alert('Invalid Pincode', 'Could not find location for this pincode');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to fetch location details');
-    } finally {
-      setPincodeLoading(false);
-    }
-  };
+  const toggleDay = (d: string) =>
+    setDays((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d]));
+  const toggleSubject = (s: string) =>
+    setSubjects((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]));
 
-  // Validation
-  const validateStep = (step: number): boolean => {
-    switch (step) {
-      case 1:
-        if (!formData.firstName.trim()) {
-          Alert.alert('Required', 'Please enter first name');
-          return false;
-        }
-        if (!formData.lastName.trim()) {
-          Alert.alert('Required', 'Please enter last name');
-          return false;
-        }
-        if (!formData.dob) {
-          Alert.alert('Required', 'Please enter date of birth');
-          return false;
-        }
-        if (!formData.gender) {
-          Alert.alert('Required', 'Please select gender');
-          return false;
-        }
-        return true;
-        
-      case 2:
-        if (!formData.houseNo.trim()) {
-          Alert.alert('Required', 'Please enter house/flat number');
-          return false;
-        }
-        if (!formData.area.trim()) {
-          Alert.alert('Required', 'Please enter area/locality');
-          return false;
-        }
-        if (!formData.pincode || formData.pincode.length !== 6) {
-          Alert.alert('Required', 'Please enter valid 6-digit pincode');
-          return false;
-        }
-        if (!formData.city || !formData.state) {
-          Alert.alert('Required', 'City and state are required');
-          return false;
-        }
-        return true;
-        
-      case 3:
-        if (!formData.schoolName.trim()) {
-          Alert.alert('Required', 'Please enter school name');
-          return false;
-        }
-        if (!formData.schoolBoard) {
-          Alert.alert('Required', 'Please select school board');
-          return false;
-        }
-        if (!formData.schoolAddress.trim()) {
-          Alert.alert('Required', 'Please enter school address');
-          return false;
-        }
-        if (!formData.class) {
-          Alert.alert('Required', 'Please select class/standard');
-          return false;
-        }
-        return true;
-        
-      case 4:
-        if (!formData.budget) {
-          Alert.alert('Required', 'Please enter budget');
-          return false;
-        }
-        if (formData.preferredDays.length === 0) {
-          Alert.alert('Required', 'Please select at least one preferred day');
-          return false;
-        }
-        if (!formData.duration) {
-          Alert.alert('Required', 'Please enter session duration');
-          return false;
-        }
-        if (!formData.teacherGender) {
-          Alert.alert('Required', 'Please select teacher gender preference');
-          return false;
-        }
-        if (formData.subjects.length === 0) {
-          Alert.alert('Required', 'Please select at least one subject');
-          return false;
-        }
-        return true;
-        
-      default:
-        return true;
-    }
-  };
-
-  // Navigation
   const handleNext = () => {
-    if (validateStep(currentStep)) {
-      if (currentStep < 4) {
-        setCurrentStep(currentStep + 1);
-      } else {
-        handleSubmit();
-      }
-    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (step < 4) setStep((s) => s + 1);
+    else router.replace("/(tabs)/home");
   };
 
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  // Submit
-  const handleSubmit = async () => {
-    setLoading(true);
-    try {
-      const response = await apiClient.post('/student/register', formData);
-      
-      if (response.data && response.data.data) {
-        await saveUserData(response.data.data);
-        Alert.alert('Success!', 'Profile created successfully', [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/(tabs)/home'),
-          },
-        ]);
-      }
-    } catch (error: any) {
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Failed to create profile. Please try again.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleDay = (day: string) => {
-    setFormData(prev => ({
-      ...prev,
-      preferredDays: prev.preferredDays.includes(day)
-        ? prev.preferredDays.filter(d => d !== day)
-        : [...prev.preferredDays, day],
-    }));
-  };
-
-  const toggleSubject = (subject: string) => {
-    setFormData(prev => ({
-      ...prev,
-      subjects: prev.subjects.includes(subject)
-        ? prev.subjects.filter(s => s !== subject)
-        : [...prev.subjects, subject],
-    }));
-  };
+  const meta = STEPS[step - 1];
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => currentStep > 1 && handleBack()} style={styles.backButton}>
-          {currentStep > 1 && <Ionicons name="arrow-back" size={24} color={colors.gray[900]} />}
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Complete Your Profile</Text>
-        <View style={styles.placeholder} />
-      </View>
+    <SafeAreaView style={styles.root} edges={["top"]}>
+      <StatusBar backgroundColor="white" translucent barStyle="dark-content" />
+      {/* ── Nav ── */}
+      <View style={styles.headerCard}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            style={[styles.navBtn, step === 1 && styles.navBtnDisabled]}
+            onPress={() => step > 1 && setStep((s) => s - 1)}
+            disabled={step === 1}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="chevron-back" size={18} color={P.ink} />
+          </TouchableOpacity>
 
-      {/* Progress Indicator */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${(currentStep / 4) * 100}%` }]} />
+          <View style={styles.headerCenterMeta}>
+            <Text style={styles.headerEyebrow}>{meta.title}</Text>
+            <Text style={styles.headerStepText}>Step {step} of 4</Text>
+          </View>
+
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepBadgeText}>
+              {Math.round((step / 4) * 100)}%
+            </Text>
+          </View>
         </View>
-        <Text style={styles.progressText}>Step {currentStep} of 4</Text>
+
+        {/* <View style={styles.progressRow}>
+          <View style={styles.progressTrack}>
+            <Animated.View style={[styles.progressFill, progressStyle]}>
+              <LinearGradient
+                colors={[P.gold, P.goldLight]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </Animated.View>
+          </View>
+          <Text style={styles.progressHint}>
+            {step === 4 ? "Final step" : "Keep going"}
+          </Text>
+        </View> */}
+
+        <View style={styles.dotsRow}>
+          {STEPS.map((s, i) => {
+            const idx = i + 1;
+            const done = idx < step;
+            const active = idx === step;
+            return (
+              <React.Fragment key={idx}>
+                <View
+                  style={[
+                    styles.dot,
+                    active && styles.dotActive,
+                    done && styles.dotDone,
+                  ]}
+                >
+                  {done ? (
+                    <Ionicons name="checkmark" size={11} color={P.navy} />
+                  ) : (
+                    <Ionicons
+                      name={s.icon}
+                      size={13}
+                      color={active ? P.navy : P.muted}
+                    />
+                  )}
+                </View>
+                {i < 3 && (
+                  <View style={[styles.dotLine, done && styles.dotLineDone]} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </View>
+
+        {/* <View style={styles.banner}>
+          <View style={styles.bannerBackground} />
+          <View style={styles.bannerIconBox}>
+            <Ionicons name={meta.icon} size={14} color={P.gold} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerTitle}>{meta.title}</Text>
+            <Text style={styles.bannerSub}>{meta.sub}</Text>
+          </View>
+        </View> */}
       </View>
 
-      {/* Content */}
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+      {/* ── Scrollable form ── */}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {currentStep === 1 && (
-          <Step1BasicDetails
-            data={formData}
-            setData={setFormData}
-            pickImage={pickImage}
-          />
-        )}
-
-        {currentStep === 2 && (
-          <Step2Address
-            data={formData}
-            setData={setFormData}
-            fetchLocation={fetchLocationFromPincode}
-            pincodeLoading={pincodeLoading}
-          />
-        )}
-
-        {currentStep === 3 && (
-          <Step3Education
-            data={formData}
-            setData={setFormData}
-          />
-        )}
-
-        {currentStep === 4 && (
-          <Step4Preferences
-            data={formData}
-            setData={setFormData}
-            toggleDay={toggleDay}
-            toggleSubject={toggleSubject}
-          />
-        )}
+        <Animated.View
+          key={step}
+          entering={FadeInRight.duration(320)}
+          exiting={FadeOutLeft.duration(200)}
+        >
+          {step === 1 && (
+            <Step1
+              dob={dob}
+              showIosPicker={showIosDob}
+              onDobPress={handleDobPress}
+              onDateSelected={onDateSelected}
+              onDismissIos={() => setShowIosDob(false)}
+              profilePhoto={profilePhoto}
+              onPickImage={pickImage}
+              gender={gender}
+              setGender={setGender}
+            />
+          )}
+          {step === 2 && <Step2 />}
+          {step === 3 && (
+            <Step3
+              board={board}
+              setBoard={setBoard}
+              cls={cls}
+              setCls={setCls}
+            />
+          )}
+          {step === 4 && (
+            <Step4
+              days={days}
+              toggleDay={toggleDay}
+              teacherPref={teacherPref}
+              setTeacherPref={setTeacherPref}
+              subjects={subjects}
+              toggleSubject={toggleSubject}
+              duration={duration}
+              setDuration={setDuration}
+            />
+          )}
+        </Animated.View>
       </ScrollView>
 
-      {/* Footer */}
+      {/* ── Footer CTA ── */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.button, styles.buttonPrimary, loading && styles.buttonDisabled]}
           onPress={handleNext}
-          disabled={loading}
+          activeOpacity={0.88}
+          style={styles.cta}
         >
-          {loading ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <Text style={styles.buttonText}>
-              {currentStep === 4 ? 'Complete Profile' : 'Next'}
+          <LinearGradient
+            colors={[P.gold, P.goldLight]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.ctaInner}
+          >
+            <Text style={styles.ctaText}>
+              {step === 4 ? "COMPLETE SETUP" : "CONTINUE"}
             </Text>
-          )}
+            <View style={styles.ctaArrow}>
+              <Ionicons
+                name={step === 4 ? "checkmark" : "arrow-forward"}
+                size={14}
+                color={P.navy}
+              />
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
-// Step 1: Basic Details
-function Step1BasicDetails({ data, setData, pickImage }: any) {
-  return (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Basic Information</Text>
-      <Text style={styles.stepSubtitle}>Let's start with your basic details</Text>
-
-      {/* Profile Photo */}
-      <TouchableOpacity style={styles.photoContainer} onPress={pickImage}>
-        {data.profilePhoto ? (
-          <Image source={{ uri: data.profilePhoto }} style={styles.photoImage} />
-        ) : (
-          <View style={styles.photoPlaceholder}>
-            <Ionicons name="camera" size={32} color={colors.gray[400]} />
-          </View>
-        )}
-        <View style={styles.photoEdit}>
-          <Ionicons name="pencil" size={16} color={colors.white} />
-        </View>
-      </TouchableOpacity>
-      <Text style={styles.photoHint}>Tap to upload profile photo</Text>
-
-      {/* First Name */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>First Name *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter first name"
-          placeholderTextColor={colors.gray[400]}
-          value={data.firstName}
-          onChangeText={(text) => setData((prev: any) => ({ ...prev, firstName: text }))}
-        />
-      </View>
-
-      {/* Last Name */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Last Name *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter last name"
-          placeholderTextColor={colors.gray[400]}
-          value={data.lastName}
-          onChangeText={(text) => setData((prev: any) => ({ ...prev, lastName: text }))}
-        />
-      </View>
-
-      {/* Date of Birth */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Date of Birth *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="DD/MM/YYYY"
-          placeholderTextColor={colors.gray[400]}
-          value={data.dob}
-          onChangeText={(text) => setData((prev: any) => ({ ...prev, dob: text }))}
-          keyboardType="numeric"
-        />
-      </View>
-
-      {/* Gender */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Gender *</Text>
-        <View style={styles.optionsRow}>
-          {['Male', 'Female', 'Other'].map((gender) => (
-            <TouchableOpacity
-              key={gender}
-              style={[styles.optionChip, data.gender === gender && styles.optionChipActive]}
-              onPress={() => setData((prev: any) => ({ ...prev, gender }))}
-            >
-              <Text style={[styles.optionText, data.gender === gender && styles.optionTextActive]}>
-                {gender}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Phone (Read-only) */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Phone Number</Text>
-        <TextInput
-          style={[styles.input, styles.inputDisabled]}
-          value={data.phone}
-          editable={false}
-        />
-        <Text style={styles.hint}>Verified via OTP</Text>
-      </View>
-    </View>
-  );
-}
-
-// Step 2: Address
-function Step2Address({ data, setData, fetchLocation, pincodeLoading }: any) {
-  return (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Address Details</Text>
-      <Text style={styles.stepSubtitle}>Where do you live?</Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>House/Flat No. *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter house/flat number"
-          placeholderTextColor={colors.gray[400]}
-          value={data.houseNo}
-          onChangeText={(text) => setData((prev: any) => ({ ...prev, houseNo: text }))}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Area/Locality *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter area or locality"
-          placeholderTextColor={colors.gray[400]}
-          value={data.area}
-          onChangeText={(text) => setData((prev: any) => ({ ...prev, area: text }))}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Landmark (Optional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter nearby landmark"
-          placeholderTextColor={colors.gray[400]}
-          value={data.landmark}
-          onChangeText={(text) => setData((prev: any) => ({ ...prev, landmark: text }))}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Pincode *</Text>
-        <View style={styles.pincodeRow}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Enter 6-digit pincode"
-            placeholderTextColor={colors.gray[400]}
-            value={data.pincode}
-            onChangeText={(text) => {
-              setData((prev: any) => ({ ...prev, pincode: text }));
-              if (text.length === 6) {
-                fetchLocation(text);
-              }
-            }}
-            keyboardType="numeric"
-            maxLength={6}
-          />
-          {pincodeLoading && <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: 8 }} />}
-        </View>
-        <Text style={styles.hint}>City and state will be auto-filled</Text>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>City *</Text>
-        <TextInput
-          style={[styles.input, styles.inputDisabled]}
-          value={data.city}
-          editable={false}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>State *</Text>
-        <TextInput
-          style={[styles.input, styles.inputDisabled]}
-          value={data.state}
-          editable={false}
-        />
-      </View>
-    </View>
-  );
-}
-
-// Step 3: Education
-function Step3Education({ data, setData }: any) {
-  const [customBoard, setCustomBoard] = useState('');
-  const [showCustomBoard, setShowCustomBoard] = useState(false);
-
-  return (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Education Details</Text>
-      <Text style={styles.stepSubtitle}>Tell us about your school</Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>School Name *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter school name"
-          placeholderTextColor={colors.gray[400]}
-          value={data.schoolName}
-          onChangeText={(text) => setData((prev: any) => ({ ...prev, schoolName: text }))}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>School Board *</Text>
-        <View style={styles.chipsContainer}>
-          {BOARDS.map((board) => (
-            <TouchableOpacity
-              key={board}
-              style={[styles.chip, data.schoolBoard === board && styles.chipActive]}
-              onPress={() => {
-                setData((prev: any) => ({ ...prev, schoolBoard: board }));
-                setShowCustomBoard(board === 'Other');
-              }}
-            >
-              <Text style={[styles.chipText, data.schoolBoard === board && styles.chipTextActive]}>
-                {board}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        {showCustomBoard && (
-          <TextInput
-            style={[styles.input, { marginTop: 12 }]}
-            placeholder="Enter board name"
-            placeholderTextColor={colors.gray[400]}
-            value={customBoard}
-            onChangeText={(text) => {
-              setCustomBoard(text);
-              setData((prev: any) => ({ ...prev, schoolBoard: text }));
-            }}
-          />
-        )}
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>School Address *</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Enter school address"
-          placeholderTextColor={colors.gray[400]}
-          value={data.schoolAddress}
-          onChangeText={(text) => setData((prev: any) => ({ ...prev, schoolAddress: text }))}
-          multiline
-          numberOfLines={3}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Class/Standard *</Text>
-        <View style={styles.chipsContainer}>
-          {CLASSES.map((cls) => (
-            <TouchableOpacity
-              key={cls}
-              style={[styles.chip, data.class === cls && styles.chipActive]}
-              onPress={() => setData((prev: any) => ({ ...prev, class: cls }))}
-            >
-              <Text style={[styles.chipText, data.class === cls && styles.chipTextActive]}>
-                {cls}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-// Step 4: Preferences
-function Step4Preferences({ data, setData, toggleDay, toggleSubject }: any) {
-  const [customSubject, setCustomSubject] = useState('');
-
-  const addCustomSubject = () => {
-    if (customSubject.trim()) {
-      toggleSubject(customSubject.trim());
-      setCustomSubject('');
-    }
-  };
-
-  return (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Tuition Preferences</Text>
-      <Text style={styles.stepSubtitle}>Help us find the perfect teacher for you</Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Budget/Fees (₹ per hour) *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter budget amount"
-          placeholderTextColor={colors.gray[400]}
-          value={data.budget}
-          onChangeText={(text) => setData((prev: any) => ({ ...prev, budget: text }))}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Preferred Days *</Text>
-        <View style={styles.chipsContainer}>
-          {DAYS.map((day) => (
-            <TouchableOpacity
-              key={day}
-              style={[styles.chip, data.preferredDays.includes(day) && styles.chipActive]}
-              onPress={() => toggleDay(day)}
-            >
-              <Text style={[styles.chipText, data.preferredDays.includes(day) && styles.chipTextActive]}>
-                {day.substring(0, 3)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Session Duration (hours) *</Text>
-        <View style={styles.optionsRow}>
-          {['1', '1.5', '2', '2.5'].map((dur) => (
-            <TouchableOpacity
-              key={dur}
-              style={[styles.optionChip, data.duration === dur && styles.optionChipActive]}
-              onPress={() => setData((prev: any) => ({ ...prev, duration: dur }))}
-            >
-              <Text style={[styles.optionText, data.duration === dur && styles.optionTextActive]}>
-                {dur}h
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Teacher Gender Preference *</Text>
-        <View style={styles.optionsRow}>
-          {['Male', 'Female', 'No Preference'].map((gender) => (
-            <TouchableOpacity
-              key={gender}
-              style={[styles.optionChip, data.teacherGender === gender && styles.optionChipActive]}
-              onPress={() => setData((prev: any) => ({ ...prev, teacherGender: gender }))}
-            >
-              <Text style={[styles.optionText, data.teacherGender === gender && styles.optionTextActive]}>
-                {gender}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Subjects *</Text>
-        <View style={styles.chipsContainer}>
-          {COMMON_SUBJECTS.map((subject) => (
-            <TouchableOpacity
-              key={subject}
-              style={[styles.chip, data.subjects.includes(subject) && styles.chipActive]}
-              onPress={() => toggleSubject(subject)}
-            >
-              <Text style={[styles.chipText, data.subjects.includes(subject) && styles.chipTextActive]}>
-                {subject}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.customInputRow}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Add custom subject"
-            placeholderTextColor={colors.gray[400]}
-            value={customSubject}
-            onChangeText={setCustomSubject}
-          />
-          <TouchableOpacity style={styles.addButton} onPress={addCustomSubject}>
-            <Ionicons name="add" size={24} color={colors.white} />
-          </TouchableOpacity>
-        </View>
-        {data.subjects.filter((s: string) => !COMMON_SUBJECTS.includes(s)).map((subject: string) => (
-          <View key={subject} style={styles.customSubjectChip}>
-            <Text style={styles.customSubjectText}>{subject}</Text>
-            <TouchableOpacity onPress={() => toggleSubject(subject)}>
-              <Ionicons name="close-circle" size={20} color={colors.gray[500]} />
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
+// ─── Atom styles ───────────────────────────────────────────────────────────────
+const atom = StyleSheet.create({
+  // Input
+  inputWrap: { gap: 7 },
+  inputLabel: {
+    fontSize: 10,
+    fontFamily: "Manrope_700Bold",
+    color: P.mutedDark,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  inputBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: P.inputBg,
+    borderRadius: 13,
+    paddingHorizontal: 14,
+    height: 52,
+    borderWidth: 1.5,
+    borderColor: P.border,
+    gap: 10,
+  },
+  inputBoxFocused: { borderColor: P.gold, backgroundColor: "#FFFDF7" },
+  inputBoxDisabled: { backgroundColor: "#EDEEF2", opacity: 0.7 },
+  inputField: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: 'Manrope_600SemiBold',
-    color: colors.gray[900],
-  },
-  placeholder: {
-    width: 40,
-  },
-  progressContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: colors.white,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: colors.gray[200],
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 3,
-  },
-  progressText: {
-    fontSize: 12,
-    fontFamily: 'Manrope_500Medium',
-    color: colors.gray[600],
-    textAlign: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  stepContainer: {
-    marginBottom: 20,
-  },
-  stepTitle: {
-    fontSize: 24,
-    fontFamily: 'Manrope_700Bold',
-    color: colors.gray[900],
-    marginBottom: 8,
-  },
-  stepSubtitle: {
     fontSize: 14,
-    fontFamily: 'Manrope_400Regular',
-    color: colors.gray[600],
-    marginBottom: 24,
+    fontFamily: "Manrope_600SemiBold",
+    color: P.ink,
   },
-  photoContainer: {
-    alignSelf: 'center',
-    marginBottom: 8,
-    position: 'relative',
+
+  // Chip
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: P.white,
+    borderWidth: 1.5,
+    borderColor: P.border,
   },
-  photoImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  photoPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: colors.gray[200],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  photoEdit: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: colors.white,
-  },
-  photoHint: {
-    fontSize: 12,
-    fontFamily: 'Manrope_400Regular',
-    color: colors.gray[500],
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontFamily: 'Manrope_600SemiBold',
-    color: colors.gray[900],
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    fontFamily: 'Manrope_400Regular',
-    color: colors.gray[900],
-  },
-  inputDisabled: {
-    backgroundColor: colors.gray[100],
-    color: colors.gray[600],
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  hint: {
-    fontSize: 12,
-    fontFamily: 'Manrope_400Regular',
-    color: colors.gray[500],
-    marginTop: 4,
-  },
-  optionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  optionChip: {
+  chipActive: { backgroundColor: P.gold, borderColor: P.gold },
+  chipText: { fontSize: 12, fontFamily: "Manrope_600SemiBold", color: P.muted },
+  chipTextActive: { color: P.navy, fontFamily: "Manrope_700Bold" },
+
+  // Pill
+  pill: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 16,
     borderRadius: 12,
+    backgroundColor: P.white,
+    borderWidth: 1.5,
+    borderColor: P.border,
+    alignItems: "center",
+    minWidth: 72,
+  },
+  pillActive: { backgroundColor: P.navy, borderColor: P.navy },
+  pillText: { fontSize: 12, fontFamily: "Manrope_600SemiBold", color: P.muted },
+  pillTextActive: { color: P.cream, fontFamily: "Manrope_700Bold" },
+
+  // Section label
+  sectionLabel: {
+    fontSize: 10,
+    fontFamily: "Manrope_700Bold",
+    color: P.mutedDark,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+
+  // Card
+  card: {
+    backgroundColor: P.white,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: colors.gray[300],
-    backgroundColor: colors.white,
-    alignItems: 'center',
+    borderColor: P.border,
+    padding: 16,
+    gap: 14,
+    shadowColor: P.navy,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  optionChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+});
+
+// ─── Layout styles ─────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: P.cream },
+
+  headerCard: {
+    // marginHorizontal: 20,
+    // marginTop: 10,
+    marginBottom: 12,
+    padding: 16,
+    // borderRadius: 22,
+    backgroundColor: P.white,
+    // borderWidth: 1,
+    // borderColor: "rgba(13,27,42,0.06)",
+    shadowColor: P.navy,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    elevation: 2,
   },
-  optionText: {
-    fontSize: 14,
-    fontFamily: 'Manrope_500Medium',
-    color: colors.gray[700],
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  optionTextActive: {
-    color: colors.white,
-  },
-  pincodeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  chipsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+  navBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: P.white,
     borderWidth: 1,
-    borderColor: colors.gray[300],
-    backgroundColor: colors.white,
+    borderColor: P.border,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: P.navy,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  navBtnDisabled: {
+    opacity: 0.4,
   },
-  chipText: {
+  headerCenterMeta: {
+    flex: 1,
+    paddingHorizontal: 12,
+    alignItems: "center",
+  },
+  headerEyebrow: {
+    fontSize: 10,
+    fontFamily: "Manrope_700Bold",
+    color: P.gold,
+    letterSpacing: 1.3,
+    textTransform: "uppercase",
+  },
+  headerStepText: {
+    marginTop: 3,
     fontSize: 13,
-    fontFamily: 'Manrope_500Medium',
-    color: colors.gray[700],
+    fontFamily: "Manrope_700Bold",
+    color: P.navy,
   },
-  chipTextActive: {
-    color: colors.white,
+  progressTrack: {
+    flex: 1,
+    height: 5,
+    backgroundColor: "rgba(13,27,42,0.06)",
+    borderRadius: 999,
+    overflow: "hidden",
   },
-  customInputRow: {
-    flexDirection: 'row',
-    gap: 8,
+  progressRow: {
+    marginTop: 14,
+    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  progressFill: { height: "100%", borderRadius: 999 },
+  progressHint: {
+    fontSize: 11,
+    fontFamily: "Manrope_600SemiBold",
+    color: P.muted,
+  },
+  stepBadge: {
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: P.goldDim,
+    borderWidth: 1,
+    borderColor: P.goldBorder,
+  },
+  stepBadgeText: { fontSize: 12, fontFamily: "Manrope_700Bold", color: P.gold },
+  welcomeTitle: {
+    fontSize: 28,
+    fontFamily: "Manrope_800ExtraBold",
+    color: P.navy,
+    letterSpacing: -0.5,
+  },
+  welcomeSub: {
+    fontSize: 14,
+    color: P.muted,
+    marginTop: 8,
+    lineHeight: 22,
+    marginBottom: 30,
+  },
+
+  dotsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 12,
   },
-  addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+  dot: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: P.white,
+    borderWidth: 1.5,
+    borderColor: P.border,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: P.navy,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  customSubjectChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: colors.gray[100],
-    marginTop: 8,
-    alignSelf: 'flex-start',
+  dotActive: { backgroundColor: P.gold, borderColor: P.gold },
+  dotDone: { backgroundColor: P.goldDim, borderColor: P.goldBorder },
+  dotLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: P.border,
+    marginHorizontal: 5,
   },
-  customSubjectText: {
-    fontSize: 13,
-    fontFamily: 'Manrope_500Medium',
-    color: colors.gray[700],
+  dotLineDone: { backgroundColor: P.gold },
+
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 2,
+    backgroundColor: P.cream,
+    borderWidth: 1,
+    borderColor: "rgba(13,27,42,0.04)",
+    overflow: "hidden",
   },
+  bannerBackground: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "rgba(232,168,56,0.06)",
+    top: -60,
+    right: -40,
+  },
+  bannerIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: P.goldDim,
+    borderWidth: 1,
+    borderColor: P.goldBorder,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  bannerTitle: {
+    fontSize: 23,
+    fontFamily: "Manrope_700Bold",
+    color: P.navy,
+    letterSpacing: -0.3,
+  },
+  bannerSub: {
+    fontSize: 14,
+    fontFamily: "Manrope_400Regular",
+    color: P.muted,
+    marginTop: 2,
+  },
+
+  scroll: { paddingHorizontal: 20, paddingBottom: 32 },
+
   footer: {
     padding: 20,
-    backgroundColor: colors.white,
+    backgroundColor: P.cream,
     borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
+    borderTopColor: P.border,
   },
-  button: {
+  cta: { borderRadius: 16, overflow: "hidden" },
+  ctaInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+    gap: 12,
   },
-  buttonPrimary: {
-    backgroundColor: colors.primary,
+  ctaText: {
+    fontSize: 14,
+    fontFamily: "Manrope_800ExtraBold",
+    color: P.navy,
+    letterSpacing: 1.2,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontFamily: 'Manrope_600SemiBold',
-    color: colors.white,
+  ctaArrow: {
+    // width: 26,
+    // height: 26,
+    // borderRadius: 9,
+    // backgroundColor: P.navy,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

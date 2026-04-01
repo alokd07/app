@@ -26,7 +26,7 @@ import { getUserData } from "../../src/services/auth";
 import Avatar from "@/components/Avatar";
 // expo haptic
 import * as Haptics from "expo-haptics";
-import { BlurView } from "expo-blur";
+import SafeBlurView from "../../components/SafeBlurView";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 56) / 2;
@@ -605,7 +605,11 @@ export default function HomeScreen() {
       <View style={{ backgroundColor: palette.cream }}>
         <View style={styles.topNav}>
           <View style={styles.row}>
-            <Avatar uri={user?.imageUrl} name={user?.firstName || "Student"} size={42} />
+            <Avatar
+              uri={user?.imageUrl}
+              name={user?.firstName || "Student"}
+              size={42}
+            />
             <View>
               <Text style={styles.greetingLabel}>{getGreeting()}</Text>
               <Text style={styles.userNameNew}>
@@ -889,7 +893,6 @@ export default function HomeScreen() {
           },
         ]}
       >
-
         <TouchableOpacity
           activeOpacity={0.9}
           onPressIn={() =>
@@ -922,7 +925,12 @@ export default function HomeScreen() {
 
       {isMatching && (
         <Animated.View style={StyleSheet.absoluteFill}>
-          <BlurView intensity={90} tint="dark" style={styles.matchOverlay}>
+          <SafeBlurView
+            intensity={90}
+            tint="dark"
+            style={styles.matchOverlay}
+            fallbackColor="rgba(2, 8, 23, 0.88)"
+          >
             <View style={styles.matchContent}>
               <Ionicons name="sparkles" size={80} color={palette.gold} />
               <Text style={styles.matchTitle}>
@@ -937,7 +945,7 @@ export default function HomeScreen() {
                 style={{ marginTop: 30 }}
               />
             </View>
-          </BlurView>
+          </SafeBlurView>
         </Animated.View>
       )}
     </View>

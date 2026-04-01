@@ -13,8 +13,8 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
+import SafeBlurView from "../../components/SafeBlurView";
 
 const { width } = Dimensions.get("window");
 
@@ -150,15 +150,14 @@ function CustomTabBar({ state, navigation }: any) {
         barStyle="light-content"
         translucent
       />
-      {Platform.OS === "ios" ? (
-        <BlurView
-          intensity={80}
-          tint="extraLight"
-          style={StyleSheet.absoluteFill}
-        />
-      ) : (
-        <View style={[StyleSheet.absoluteFill, styles.androidBg]} />
-      )}
+      <SafeBlurView
+        intensity={80}
+        tint="extraLight"
+        style={StyleSheet.absoluteFill}
+        fallbackColor={
+          Platform.OS === "ios" ? "rgba(255,255,255,0.85)" : "white"
+        }
+      />
 
       <View style={styles.tabsRow}>
         {TABS.map((tab, index) => {
