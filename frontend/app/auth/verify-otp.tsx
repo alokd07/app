@@ -6,65 +6,94 @@ import {
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Alert,
   ActivityIndicator,
   Animated,
   Dimensions,
+  StatusBar,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
 import apiClient from "../../src/services/api";
 import { API_CONFIG } from "../../src/config/api";
 import { saveToken, saveUserData } from "../../src/services/auth";
 import { useAuthStore } from "../../src/store/authStore";
-import { LoginResponse } from "../../src/types";
 
 const { width } = Dimensions.get("window");
 
-// ─── Design Tokens (must match LoginScreen) ───────────────────────────────────
 const palette = {
   navy: "#0D1B2A",
   navyMid: "#112236",
   navyLight: "#1A3050",
   gold: "#E8A838",
   goldLight: "#F2C26A",
+  goldPale: "rgba(232,168,56,0.10)",
+  goldBorder: "rgba(232,168,56,0.28)",
   cream: "#FAF7F2",
   white: "#FFFFFF",
   ink: "#0D1B2A",
   muted: "#8A9BB0",
   border: "#D9E2EE",
   inputBg: "#F4F7FB",
-  success: "#27AE60",
 };
 
 const OTP_LENGTH = 6;
+const BOX_GAP = 8;
+const BOX_SIZE = Math.floor(
+  (width - 32 - 44 - BOX_GAP * (OTP_LENGTH - 1)) / OTP_LENGTH,
+);
 
-// ─── Single OTP Box ───────────────────────────────────────────────────────────
+// ─── Blinking cursor ──────────────────────────────────────────────────────────
+function BlinkCursor() {
+  const opacity = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 530,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 530,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, []);
+  return <Animated.View style={[styles.cursor, { opacity }]} />;
+}
+
+// ─── OTP Box ──────────────────────────────────────────────────────────────────
 function OtpBox({
   char,
   focused,
-  shake,
+  filled,
+  shakeAnim,
 }: {
   char: string;
   focused: boolean;
-  shake: Animated.Value;
+  filled: boolean;
+  shakeAnim: Animated.Value;
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
+  const scale = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (char) {
       Animated.sequence([
-        Animated.spring(scaleAnim, {
-          toValue: 1.12,
+        Animated.spring(scale, {
+          toValue: 1.13,
+          speed: 50,
           useNativeDriver: true,
-          speed: 40,
         }),
-        Animated.spring(scaleAnim, {
+        Animated.spring(scale, {
           toValue: 1,
+          friction: 5,
           useNativeDriver: true,
-          friction: 4,
         }),
       ]).start();
     }
@@ -75,197 +104,377 @@ function OtpBox({
       style={[
         styles.otpBox,
         focused && styles.otpBoxFocused,
-        char && styles.otpBoxFilled,
-        { transform: [{ scale: scaleAnim }, { translateX: shake }] },
+        filled && styles.otpBoxFilled,
+        { transform: [{ scale }, { translateX: shakeAnim }] },
       ]}
     >
       {char ? (
         <Text style={styles.otpChar}>{char}</Text>
       ) : focused ? (
-        <View style={styles.cursor} />
+        <BlinkCursor />
       ) : null}
     </Animated.View>
   );
 }
 
-// ─── Countdown Timer ──────────────────────────────────────────────────────────
-function CountdownTimer({
-  onExpire,
+// ─── Step Indicator ───────────────────────────────────────────────────────────
+function StepIndicator({ current }: { current: number }) {
+  const steps = ["Phone", "Verify", "Done"];
+  return (
+    <View style={styles.stepWrap}>
+      {steps.map((label, i) => {
+        const done = i < current;
+        const active = i === current;
+        return (
+          <React.Fragment key={i}>
+            <View style={styles.stepItem}>
+              <View
+                style={[
+                  styles.stepCircle,
+                  done && styles.stepCircleDone,
+                  active && styles.stepCircleActive,
+                ]}
+              >
+                {done ? (
+                  <Ionicons name="checkmark" size={11} color={palette.navy} />
+                ) : (
+                  <Text
+                    style={[styles.stepNum, active && styles.stepNumActive]}
+                  >
+                    {i + 1}
+                  </Text>
+                )}
+              </View>
+              <Text
+                style={[styles.stepLabel, active && styles.stepLabelActive]}
+              >
+                {label}
+              </Text>
+            </View>
+            {i < steps.length - 1 && (
+              <View
+                style={[styles.stepConnector, done && styles.stepConnectorDone]}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── Circular Shield ──────────────────────────────────────────────────────────
+function ShieldProgress({ count, total }: { count: number; total: number }) {
+  return (
+    <View style={styles.shieldOuter}>
+      {/* Dot ring */}
+      {Array.from({ length: total }).map((_, i) => {
+        const angle = ((360 / total) * i - 90) * (Math.PI / 180);
+        const r = 46;
+        const cx = 52 + r * Math.cos(angle);
+        const cy = 52 + r * Math.sin(angle);
+        return (
+          <View
+            key={i}
+            style={[
+              styles.ringDot,
+              {
+                left: cx - 5,
+                top: cy - 5,
+                backgroundColor:
+                  i < count ? palette.gold : "rgba(255,255,255,0.18)",
+              },
+            ]}
+          />
+        );
+      })}
+      {/* Center */}
+      <View style={styles.shieldCenter}>
+        <Ionicons
+          name={count === total ? "shield-checkmark" : "shield-outline"}
+          size={36}
+          color={count === total ? palette.gold : "rgba(255,255,255,0.80)"}
+        />
+      </View>
+    </View>
+  );
+}
+
+// ─── Countdown ────────────────────────────────────────────────────────────────
+function Countdown({
   onResend,
   resending,
 }: {
-  onExpire: () => void;
   onResend: () => void;
   resending: boolean;
 }) {
-  const [seconds, setSeconds] = useState(30);
-  const [expired, setExpired] = useState(false);
+  const [secs, setSecs] = useState(30);
+  const [done, setDone] = useState(false);
+  const fillAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (seconds <= 0) {
-      setExpired(true);
-      onExpire();
+    Animated.timing(fillAnim, {
+      toValue: 0,
+      duration: 30000,
+      useNativeDriver: false,
+    }).start();
+  }, []);
+
+  useEffect(() => {
+    if (secs <= 0) {
+      setDone(true);
       return;
     }
-    const t = setTimeout(() => setSeconds((s) => s - 1), 1000);
+    const t = setTimeout(() => setSecs((s) => s - 1), 1000);
     return () => clearTimeout(t);
-  }, [seconds]);
+  }, [secs]);
 
   const handleResend = () => {
-    setSeconds(30);
-    setExpired(false);
+    setSecs(30);
+    setDone(false);
+    fillAnim.setValue(1);
+    Animated.timing(fillAnim, {
+      toValue: 0,
+      duration: 30000,
+      useNativeDriver: false,
+    }).start();
     onResend();
   };
 
-  if (expired) {
+  const barWidth = fillAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+  });
+
+  if (done) {
     return (
-      <TouchableOpacity onPress={handleResend} disabled={resending}>
+      <TouchableOpacity
+        onPress={handleResend}
+        disabled={resending}
+        style={styles.resendBtn}
+        activeOpacity={0.8}
+      >
         {resending ? (
           <ActivityIndicator size="small" color={palette.gold} />
         ) : (
-          <Text style={styles.resendActive}>Resend OTP</Text>
+          <>
+            <Ionicons name="refresh-outline" size={14} color={palette.gold} />
+            <Text style={styles.resendBtnText}>Resend OTP</Text>
+          </>
         )}
       </TouchableOpacity>
     );
   }
 
   return (
-    <Text style={styles.resendTimer}>
-      Resend in{" "}
-      <Text style={styles.resendTimerBold}>
-        0:{String(seconds).padStart(2, "0")}
+    <View style={styles.countdownWrap}>
+      <View style={styles.countdownTrack}>
+        <Animated.View style={[styles.countdownFill, { width: barWidth }]} />
+      </View>
+      <Text style={styles.countdownText}>
+        Resend in{" "}
+        <Text style={styles.countdownBold}>
+          0:{String(secs).padStart(2, "0")}
+        </Text>
       </Text>
-    </Text>
+    </View>
   );
 }
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+// ─── Screen ───────────────────────────────────────────────────────────────────
 export default function VerifyOTPScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [timerExpired, setTimerExpired] = useState(false);
   const { setUser, setAuthenticated } = useAuthStore();
 
   const inputRef = useRef<TextInput>(null);
   const shakeAnim = useRef(new Animated.Value(0)).current;
-
-  // Entrance
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(40)).current;
+  const heroSlide = useRef(new Animated.Value(-16)).current;
+  const cardSlide = useRef(new Animated.Value(28)).current;
+  const keyboardVisibleRef = useRef(false);
+  const autoVerifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const focusOtpInput = () => {
+    const input = inputRef.current;
+    if (!input || loading) return;
+
+    // If keyboard is hidden while input is still focused, force a refocus cycle.
+    if (!keyboardVisibleRef.current) {
+      input.blur();
+      requestAnimationFrame(() => {
+        setTimeout(() => input.focus(), 20);
+      });
+      return;
+    }
+
+    // Normal focus path while keyboard is already visible.
+    requestAnimationFrame(() => input.focus());
+  };
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 550,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 550,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      inputRef.current?.focus();
+    const showSub = Keyboard.addListener("keyboardDidShow", () => {
+      keyboardVisibleRef.current = true;
     });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      keyboardVisibleRef.current = false;
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    StatusBar.setBarStyle("light-content");
+    Animated.stagger(80, [
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 480,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heroSlide, {
+          toValue: 0,
+          duration: 480,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.spring(cardSlide, {
+        toValue: 0,
+        tension: 52,
+        friction: 9,
+        useNativeDriver: true,
+      }),
+    ]).start(() => focusOtpInput());
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (autoVerifyTimerRef.current) {
+        clearTimeout(autoVerifyTimerRef.current);
+      }
+    };
   }, []);
 
   const shake = () => {
     Animated.sequence([
       Animated.timing(shakeAnim, {
-        toValue: 10,
-        duration: 80,
+        toValue: 12,
+        duration: 65,
         useNativeDriver: true,
       }),
       Animated.timing(shakeAnim, {
-        toValue: -10,
-        duration: 80,
+        toValue: -12,
+        duration: 65,
         useNativeDriver: true,
       }),
       Animated.timing(shakeAnim, {
         toValue: 8,
-        duration: 80,
+        duration: 65,
         useNativeDriver: true,
       }),
       Animated.timing(shakeAnim, {
         toValue: -8,
-        duration: 80,
+        duration: 65,
         useNativeDriver: true,
       }),
       Animated.timing(shakeAnim, {
         toValue: 0,
-        duration: 80,
+        duration: 65,
         useNativeDriver: true,
       }),
     ]).start();
   };
 
-  const handleVerifyOTP = async () => {
-    if (!otp || otp.length !== OTP_LENGTH) {
+  const handleVerifyOTP = async (otpValue?: string) => {
+    const normalizedOtp = (otpValue ?? otp)
+      .replace(/\D/g, "")
+      .slice(0, OTP_LENGTH);
+    console.log(
+      "Verifying OTP:",
+      normalizedOtp,
+      "length:",
+      normalizedOtp.length,
+      OTP_LENGTH
+    );
+    if (normalizedOtp.length !== OTP_LENGTH) {
+      console.log("OTP incomplete, cannot verify");
       shake();
       Alert.alert("Invalid OTP", "Please enter a valid 6-digit OTP");
       return;
     }
-
     setLoading(true);
+
     try {
-      const response = await apiClient.post(API_CONFIG.ENDPOINTS.VERIFY_OTP, {
-        phone,
-        otp,
+      const res = await apiClient.post(API_CONFIG.ENDPOINTS.VERIFY_OTP, {
+        phoneNumber: phone,
+        otp: normalizedOtp,
+        type: "student",
       });
-      
-      if (response.data?.data) {
-        const { token, user } = response.data.data;
+      console.log("OTP verification response:", res.data.data);
+      if (res.data.data) {
+        if (res.data.data.exist === false) {
+          // New user flow - navigate to profile setup with token and phone
+          const { token } = res.data.data;
+          await saveToken(token);
+          router.replace({
+            pathname: "/profile-setup",
+            query: { phone, token },
+          });
+          return;
+        }
+        const { token, user } = res.data.data;
         await saveToken(token);
         await saveUserData(user);
         setUser(user);
         setAuthenticated(true);
-        
-        Alert.alert("Success!", "Login successful", [
-          {
-            text: "Continue",
-            onPress: () => {
-              router.replace("/(tabs)/home");
-            },
-          },
-        ]);
-      } else {
-        throw new Error("Invalid response from server");
-      }
-    } catch (error: any) {
+        router.replace("/(tabs)/home");
+      } else throw new Error("Invalid response");
+    } catch (err: any) {
       shake();
+      console.log("OTP verification error:", err.response?.data || err.message || err);
       Alert.alert(
         "Verification Failed",
-        error.response?.data?.message || "Invalid OTP. Please try again.",
+        err.response?.data?.message || "Invalid OTP.",
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendOTP = async () => {
+  const handleResend = async () => {
     setResending(true);
     try {
-      await apiClient.post(API_CONFIG.ENDPOINTS.SEND_OTP, { phone });
+      await apiClient.post(API_CONFIG.ENDPOINTS.RESEND_OTP, {
+        phoneNumber: phone,
+        type: "student",
+      });
       Alert.alert("Sent!", "A new OTP has been sent to your WhatsApp.");
     } catch {
-      Alert.alert("Error", "Failed to resend OTP. Please try again.");
+      Alert.alert("Error", "Failed to resend OTP.");
     } finally {
       setResending(false);
     }
   };
 
-  // Progress ring fill
-  const progress = otp.length / OTP_LENGTH;
+  const isComplete = otp.length === OTP_LENGTH;
 
   return (
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      {/* ── Hero Strip ── */}
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
+
+      {/* ── Hero ── */}
       <LinearGradient
         colors={[palette.navy, palette.navyMid, palette.navyLight]}
         style={styles.hero}
@@ -274,63 +483,42 @@ export default function VerifyOTPScreen() {
       >
         <View style={styles.accentLine} />
 
-        {/* Back button */}
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="arrow-back" size={20} color={palette.white} />
-        </TouchableOpacity>
+        <SafeAreaView edges={["top"]}>
+          {/* Back */}
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="arrow-back" size={16} color={palette.white} />
+            <Text style={styles.backLabel}>Back</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
 
-        {/* Shield icon with progress ring */}
         <Animated.View
           style={[
             styles.heroContent,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            { opacity: fadeAnim, transform: [{ translateY: heroSlide }] },
           ]}
         >
-          <View style={styles.shieldWrap}>
-            <View style={styles.shieldRing}>
-              {/* Progress arc as segments */}
-              {Array.from({ length: OTP_LENGTH }).map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.progressSegment,
-                    {
-                      backgroundColor:
-                        i < otp.length
-                          ? palette.gold
-                          : "rgba(255,255,255,0.15)",
-                      transform: [
-                        { rotate: `${i * 60}deg` },
-                        { translateX: 36 },
-                      ],
-                    },
-                  ]}
-                />
-              ))}
-              <View style={styles.shieldIcon}>
-                <Ionicons
-                  name={
-                    otp.length === OTP_LENGTH
-                      ? "shield-checkmark"
-                      : "shield-outline"
-                  }
-                  size={32}
-                  color={
-                    otp.length === OTP_LENGTH ? palette.gold : palette.white
-                  }
-                />
-              </View>
-            </View>
-          </View>
-
+          <ShieldProgress count={otp.length} total={OTP_LENGTH} />
           <Text style={styles.heroTitle}>Verify your number</Text>
+          <Text style={styles.heroSub}>Code sent to your WhatsApp</Text>
+
+          {/* Phone pill with edit */}
           <View style={styles.phonePill}>
             <Ionicons name="logo-whatsapp" size={13} color={palette.gold} />
             <Text style={styles.phonePillText}>{phone}</Text>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              hitSlop={{ top: 8, bottom: 8, left: 12, right: 8 }}
+            >
+              <Ionicons
+                name="pencil-outline"
+                size={12}
+                color="rgba(242,194,106,0.7)"
+              />
+            </TouchableOpacity>
           </View>
         </Animated.View>
 
@@ -341,75 +529,82 @@ export default function VerifyOTPScreen() {
       <Animated.View
         style={[
           styles.card,
-          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          { opacity: fadeAnim, transform: [{ translateY: cardSlide }] },
         ]}
       >
-        <Text style={styles.cardLabel}>Enter 6-digit code</Text>
+        {/* Step tracker */}
+        <StepIndicator current={1} />
 
-        {/* Hidden real input */}
+        <Text style={styles.cardTitle}>Enter your code</Text>
+        <Text style={styles.cardSub}>
+          Tap below or type to fill in the digits
+        </Text>
+
+        {/* Hidden input */}
         <TextInput
           ref={inputRef}
           style={styles.hiddenInput}
           keyboardType="number-pad"
           maxLength={OTP_LENGTH}
           value={otp}
+          autoFocus
+          showSoftInputOnFocus
           onChangeText={(v) => {
-            setOtp(v);
-            if (v.length === OTP_LENGTH) {
-              // Auto-verify after short delay
-              setTimeout(() => {
-                if (v.length === OTP_LENGTH) handleVerifyOTP();
-              }, 300);
+            const cleaned = v.replace(/\D/g, "").slice(0, OTP_LENGTH);
+            setOtp(cleaned);
+            if (autoVerifyTimerRef.current) {
+              clearTimeout(autoVerifyTimerRef.current);
+            }
+            if (cleaned.length === OTP_LENGTH) {
+              autoVerifyTimerRef.current = setTimeout(
+                () => handleVerifyOTP(cleaned),
+                320,
+              );
             }
           }}
           editable={!loading}
-          autoFocus={false}
         />
 
-        {/* Visual OTP boxes */}
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => inputRef.current?.focus()}
-        >
-          <Animated.View style={styles.otpRow}>
+        {/* OTP boxes */}
+        <TouchableOpacity activeOpacity={1} onPressIn={focusOtpInput}>
+          <View style={styles.otpRow}>
             {Array.from({ length: OTP_LENGTH }).map((_, i) => (
               <OtpBox
                 key={i}
                 char={otp[i] || ""}
                 focused={otp.length === i}
-                shake={shakeAnim}
+                filled={i < otp.length}
+                shakeAnim={shakeAnim}
               />
             ))}
-          </Animated.View>
+          </View>
         </TouchableOpacity>
 
-        {/* Resend row */}
-        <View style={styles.resendRow}>
-          <Text style={styles.resendLabel}>Didn&apos;t receive it? </Text>
-          <CountdownTimer
-            onExpire={() => setTimerExpired(true)}
-            onResend={handleResendOTP}
-            resending={resending}
-          />
+        {/* Dot progress */}
+        <View style={styles.dotsRow}>
+          {Array.from({ length: OTP_LENGTH }).map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, i < otp.length && styles.dotFilled]}
+            />
+          ))}
         </View>
 
-        {/* Verify CTA */}
+        {/* Countdown */}
+        <Countdown onResend={handleResend} resending={resending} />
+
+        {/* CTA */}
         <TouchableOpacity
-          style={[
-            styles.ctaButton,
-            (loading || otp.length < OTP_LENGTH) && styles.ctaDisabled,
-          ]}
-          onPress={handleVerifyOTP}
-          disabled={loading || otp.length < OTP_LENGTH}
+          style={[styles.cta, (!isComplete || loading) && styles.ctaOff]}
+          onPress={() => handleVerifyOTP()}
+          disabled={!isComplete || loading}
           activeOpacity={0.88}
         >
           <LinearGradient
             colors={
-              otp.length === OTP_LENGTH
-                ? [palette.gold, "#D4922A"]
-                : ["#C8D4E0", "#B0BEC5"]
+              isComplete ? [palette.gold, "#D4922A"] : ["#C8D4E0", "#B8C8D8"]
             }
-            style={styles.ctaGradient}
+            style={styles.ctaGrad}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
@@ -418,39 +613,35 @@ export default function VerifyOTPScreen() {
             ) : (
               <View style={styles.ctaInner}>
                 <Text
-                  style={[
-                    styles.ctaText,
-                    otp.length < OTP_LENGTH && styles.ctaTextMuted,
-                  ]}
+                  style={[styles.ctaText, !isComplete && styles.ctaTextOff]}
                 >
                   Verify & Continue
                 </Text>
-                <View
-                  style={[
-                    styles.ctaArrow,
-                    otp.length < OTP_LENGTH && styles.ctaArrowMuted,
-                  ]}
-                >
-                  <Ionicons
-                    name="arrow-forward"
-                    size={16}
-                    color={otp.length === OTP_LENGTH ? palette.navy : "#90A4AE"}
-                  />
-                </View>
+                {/* <View
+                  style={[styles.ctaArrow, isComplete && styles.ctaArrowOn]}
+                > */}
+                <Ionicons
+                  name="arrow-forward"
+                  size={15}
+                  color={isComplete ? palette.navy : "#90A4AE"}
+                />
+                {/* </View> */}
               </View>
             )}
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Change number */}
-        <TouchableOpacity
-          style={styles.changeRow}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="create-outline" size={14} color={palette.muted} />
-          <Text style={styles.changeText}>Change phone number</Text>
-        </TouchableOpacity>
+        {/* Trust footer */}
+        <View style={styles.trustRow}>
+          <Ionicons
+            name="lock-closed-outline"
+            size={11}
+            color={palette.muted}
+          />
+          <Text style={styles.trustText}>
+            Secured with end-to-end encryption
+          </Text>
+        </View>
       </Animated.View>
     </KeyboardAvoidingView>
   );
@@ -463,125 +654,184 @@ const styles = StyleSheet.create({
     backgroundColor: palette.cream,
   },
 
-  // ── Hero ──
-  hero: {
-    height: 280,
-    overflow: "hidden",
-    position: "relative",
-  },
+  // Hero
+  hero: {},
   accentLine: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
     height: 3,
     backgroundColor: palette.gold,
   },
   backBtn: {
-    position: "absolute",
-    top: 52,
-    left: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    justifyContent: "center",
+    flexDirection: "row",
     alignItems: "center",
-    zIndex: 10,
+    gap: 6,
+    alignSelf: "flex-start",
+    marginHorizontal: 16,
+    marginTop: 10,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  backLabel: {
+    fontSize: 13,
+    fontFamily: "Manrope_600SemiBold",
+    color: palette.white,
   },
   heroContent: {
-    flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    paddingTop: 24,
-  },
-  shieldWrap: {
-    marginBottom: 16,
-  },
-  shieldRing: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-  },
-  progressSegment: {
-    position: "absolute",
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    top: "50%",
-    left: "50%",
-    marginTop: -3,
-    marginLeft: -3,
-  },
-  shieldIcon: {
-    justifyContent: "center",
-    alignItems: "center",
+    paddingVertical: 22,
+    gap: 8,
   },
   heroTitle: {
-    fontSize: 22,
+    fontSize: 21,
     fontFamily: "Manrope_700Bold",
     color: palette.white,
-    marginBottom: 10,
     letterSpacing: -0.3,
+    marginTop: 4,
+  },
+  heroSub: {
+    fontSize: 13,
+    fontFamily: "Manrope_400Regular",
+    color: "rgba(255,255,255,0.52)",
   },
   phonePill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(232,168,56,0.15)",
-    borderRadius: 20,
+    gap: 7,
+    backgroundColor: "rgba(232,168,56,0.13)",
+    borderRadius: 22,
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderWidth: 1,
-    borderColor: "rgba(232,168,56,0.3)",
+    borderColor: "rgba(232,168,56,0.26)",
   },
   phonePillText: {
     fontSize: 13,
     fontFamily: "Manrope_600SemiBold",
     color: palette.goldLight,
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   heroCurve: {
-    position: "absolute",
-    bottom: -1,
-    left: 0,
-    right: 0,
-    height: 32,
+    height: 28,
     backgroundColor: palette.cream,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
   },
 
-  // ── Card ──
-  card: {
-    marginHorizontal: 20,
-    marginTop: 8,
-    backgroundColor: palette.white,
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: palette.navy,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 6,
+  // Shield ring
+  shieldOuter: {
+    width: 104,
+    height: 104,
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  cardLabel: {
-    fontSize: 12,
-    fontFamily: "Manrope_600SemiBold",
-    color: palette.ink,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    textAlign: "center",
-    marginBottom: 20,
+  ringDot: {
+    position: "absolute",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  shieldCenter: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.14)",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
-  // ── OTP Boxes ──
+  // Card
+  card: {
+    marginHorizontal: 16,
+    marginTop: -4,
+    backgroundColor: palette.white,
+    borderRadius: 24,
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 22,
+    shadowColor: palette.navy,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.09,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+
+  // Step indicator
+  stepWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
+  stepItem: {
+    alignItems: "center",
+    gap: 4,
+  },
+  stepCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "transparent",
+    borderWidth: 2,
+    borderColor: palette.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  stepCircleDone: {
+    backgroundColor: palette.gold,
+    borderColor: palette.gold,
+  },
+  stepCircleActive: {
+    borderColor: palette.navy,
+    backgroundColor: palette.navy,
+  },
+  stepNum: {
+    fontSize: 11,
+    fontFamily: "Manrope_700Bold",
+    color: palette.muted,
+  },
+  stepNumActive: {
+    color: palette.gold,
+  },
+  stepLabel: {
+    fontSize: 10,
+    fontFamily: "Manrope_500Medium",
+    color: palette.muted,
+  },
+  stepLabelActive: {
+    color: palette.ink,
+    fontFamily: "Manrope_700Bold",
+  },
+  stepConnector: {
+    width: 36,
+    height: 2,
+    backgroundColor: palette.border,
+    marginHorizontal: 4,
+    marginBottom: 14,
+  },
+  stepConnectorDone: {
+    backgroundColor: palette.gold,
+  },
+
+  cardTitle: {
+    fontSize: 17,
+    fontFamily: "Manrope_700Bold",
+    color: palette.ink,
+    textAlign: "center",
+    marginBottom: 3,
+  },
+  cardSub: {
+    fontSize: 12,
+    fontFamily: "Manrope_400Regular",
+    color: palette.muted,
+    textAlign: "center",
+    marginBottom: 18,
+  },
+
+  // OTP
   hiddenInput: {
     position: "absolute",
     opacity: 0,
@@ -590,13 +840,12 @@ const styles = StyleSheet.create({
   },
   otpRow: {
     flexDirection: "row",
-    justifyContent: "center",
-    gap: 10,
-    marginBottom: 24,
+    justifyContent: "space-between",
+    marginBottom: 10,
   },
   otpBox: {
-    width: (width - 40 - 48 - 10 * 5) / 6,
-    height: 56,
+    width: BOX_SIZE,
+    height: BOX_SIZE,
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: palette.border,
@@ -609,16 +858,16 @@ const styles = StyleSheet.create({
     backgroundColor: palette.white,
     shadowColor: palette.gold,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 4,
   },
   otpBoxFilled: {
     borderColor: palette.navy,
     backgroundColor: palette.white,
   },
   otpChar: {
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: "Manrope_700Bold",
     color: palette.ink,
   },
@@ -629,51 +878,86 @@ const styles = StyleSheet.create({
     backgroundColor: palette.gold,
   },
 
-  // ── Resend ──
-  resendRow: {
+  // Dots
+  dotsRow: {
     flexDirection: "row",
     justifyContent: "center",
+    gap: 6,
+    marginBottom: 16,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: palette.border,
+  },
+  dotFilled: {
+    backgroundColor: palette.gold,
+  },
+
+  // Countdown
+  countdownWrap: {
     alignItems: "center",
-    marginBottom: 24,
+    gap: 7,
+    marginBottom: 18,
   },
-  resendLabel: {
-    fontSize: 13,
+  countdownTrack: {
+    width: "65%",
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: palette.border,
+    overflow: "hidden",
+  },
+  countdownFill: {
+    height: "100%",
+    backgroundColor: palette.gold,
+    borderRadius: 2,
+  },
+  countdownText: {
+    fontSize: 12,
     fontFamily: "Manrope_400Regular",
     color: palette.muted,
   },
-  resendTimer: {
-    fontSize: 13,
-    fontFamily: "Manrope_400Regular",
-    color: palette.muted,
-  },
-  resendTimerBold: {
+  countdownBold: {
     fontFamily: "Manrope_700Bold",
     color: palette.ink,
   },
-  resendActive: {
+  resendBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "center",
+    marginBottom: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    backgroundColor: palette.goldPale,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.goldBorder,
+  },
+  resendBtnText: {
     fontSize: 13,
     fontFamily: "Manrope_700Bold",
     color: palette.gold,
-    textDecorationLine: "underline",
   },
 
-  // ── CTA ──
-  ctaButton: {
+  // CTA
+  cta: {
     borderRadius: 14,
     overflow: "hidden",
-    marginBottom: 16,
+    marginBottom: 14,
     shadowColor: palette.gold,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.28,
     shadowRadius: 12,
     elevation: 5,
   },
-  ctaDisabled: {
+  ctaOff: {
     shadowOpacity: 0,
     elevation: 0,
   },
-  ctaGradient: {
-    paddingVertical: 17,
+  ctaGrad: {
+    paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -683,37 +967,34 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   ctaText: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Manrope_700Bold",
     color: palette.navy,
     letterSpacing: 0.2,
   },
-  ctaTextMuted: {
-    color: "#90A4AE",
-  },
+  ctaTextOff: { color: "#90A4AE" },
   ctaArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    // backgroundColor: "rgba(13,27,42,0.12)",
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    backgroundColor: "rgba(0,0,0,0.06)",
     justifyContent: "center",
     alignItems: "center",
   },
-  ctaArrowMuted: {
-    // backgroundColor: "rgba(0,0,0,0.06)",
-    backgroundColor: "rgba(0,0,0,0.00)",
+  ctaArrowOn: {
+    backgroundColor: "rgba(13,27,42,0.12)",
   },
 
-  // ── Change number ──
-  changeRow: {
+  // Trust
+  trustRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 5,
   },
-  changeText: {
-    fontSize: 13,
-    fontFamily: "Manrope_500Medium",
+  trustText: {
+    fontSize: 11,
+    fontFamily: "Manrope_400Regular",
     color: palette.muted,
   },
 });

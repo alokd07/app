@@ -1,23 +1,24 @@
 // Centralized API configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://api.bookmysession.in',
+  BASE_URL: "https://api.bookmysession.in",
   ENDPOINTS: {
     // Auth
-    SEND_OTP: '/auth/send-otp',
-    VERIFY_OTP: '/auth/verify-otp',
-    
+    SEND_OTP: "/auth/whatsapp/send-otp",
+    VERIFY_OTP: "/auth/whatsapp/verify-otp",
+    RESEND_OTP: "/auth/whatsapp/resend-otp",
+
     // Teachers
-    TEACHERS: '/teachers',
+    TEACHERS: "/teacher/nearby-teachers",
     TEACHER_DETAIL: (id: string) => `/teachers/${id}`,
-    
+
     // Bookings
-    BOOKINGS: '/bookings',
-    MY_BOOKINGS: '/bookings/my',
+    BOOKINGS: "/bookings",
+    MY_BOOKINGS: "/bookings/my",
     BOOKING_DETAIL: (id: string) => `/bookings/${id}`,
     CANCEL_BOOKING: (id: string) => `/bookings/cancel/${id}`,
-    
+
     // User
-    USER_PROFILE: '/user/profile',
+    USER_PROFILE: "/user/profile",
   },
   TIMEOUT: 30000,
   DEBOUNCE_DELAY: 300,

@@ -4,11 +4,12 @@
     "slug": "bookmysession",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/Logo.png",
     "scheme": "bookmysession",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
+      "image": "./assets/images/Logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#2563EB"
     },
@@ -39,10 +40,18 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "628add1b-f8b5-4f75-b3c2-3a0d534b31e1"
+      }
+    },
+    "owner": "alokd07"
   }
 }

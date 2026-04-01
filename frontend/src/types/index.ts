@@ -13,12 +13,14 @@ export interface Availability {
 export interface Teacher {
   _id: string;
   name: string;
+  subject: string;
   profileImage: string;
   subjects: string[];
   classes: string[];
   pricePerHour: number;
   rating: number;
   totalReviews: number;
+  hourlyRate: number;
   bio?: string;
   experienceYears?: number;
   availability?: Availability[];

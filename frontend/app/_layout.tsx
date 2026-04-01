@@ -103,6 +103,13 @@ export default function RootLayout() {
             title: "Booking Details",
           }}
         />
+        <Stack.Screen
+          name="ai-results"
+          options={{
+            title: "AI Recommendations",
+            headerShown: false,
+          }}
+        />
       </Stack>
     </SafeAreaProvider>
   );

@@ -12,15 +12,17 @@ import {
   ScrollView,
   Animated,
   Dimensions,
+  StatusBar,
+  Image,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
+import { SafeAreaView } from "react-native-safe-area-context";
 import apiClient from "../../src/services/api";
 import { API_CONFIG } from "../../src/config/api";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const palette = {
@@ -29,7 +31,8 @@ const palette = {
   navyLight: "#1A3050",
   gold: "#E8A838",
   goldLight: "#F2C26A",
-  goldPale: "#FDF3DC",
+  goldPale: "rgba(232,168,56,0.10)",
+  goldBorder: "rgba(232,168,56,0.26)",
   cream: "#FAF7F2",
   white: "#FFFFFF",
   ink: "#0D1B2A",
@@ -39,7 +42,7 @@ const palette = {
   error: "#E05252",
 };
 
-// ─── Floating Orb Component ───────────────────────────────────────────────────
+// ─── Floating Orb ─────────────────────────────────────────────────────────────
 function FloatingOrb({
   size,
   top,
@@ -68,12 +71,10 @@ function FloatingOrb({
       ]),
     ).start();
   }, []);
-
   const translateY = anim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, -14],
   });
-
   return (
     <Animated.View
       style={[
@@ -85,53 +86,116 @@ function FloatingOrb({
   );
 }
 
+// ─── Trust Badge ──────────────────────────────────────────────────────────────
+function TrustBadge({ icon, label }: { icon: string; label: string }) {
+  return (
+    <View style={styles.trustBadge}>
+      <Ionicons name={icon as any} size={13} color={palette.gold} />
+      <Text style={styles.trustBadgeText}>{label}</Text>
+    </View>
+  );
+}
+
+// ─── Step Indicator ───────────────────────────────────────────────────────────
+function StepIndicator({ current }: { current: number }) {
+  const steps = ["Phone", "Verify", "Done"];
+  return (
+    <View style={styles.stepWrap}>
+      {steps.map((label, i) => {
+        const done = i < current;
+        const active = i === current;
+        return (
+          <React.Fragment key={i}>
+            <View style={styles.stepItem}>
+              <View
+                style={[
+                  styles.stepCircle,
+                  done && styles.stepCircleDone,
+                  active && styles.stepCircleActive,
+                ]}
+              >
+                {done ? (
+                  <Ionicons name="checkmark" size={11} color={palette.navy} />
+                ) : (
+                  <Text
+                    style={[styles.stepNum, active && styles.stepNumActive]}
+                  >
+                    {i + 1}
+                  </Text>
+                )}
+              </View>
+              <Text
+                style={[styles.stepLabel, active && styles.stepLabelActive]}
+              >
+                {label}
+              </Text>
+            </View>
+            {i < steps.length - 1 && (
+              <View
+                style={[styles.stepConnector, done && styles.stepConnectorDone]}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function LoginScreen() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
 
-  // Entrance animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(32)).current;
+  const slideAnim = useRef(new Animated.Value(28)).current;
   const cardAnim = useRef(new Animated.Value(0)).current;
   const btnScale = useRef(new Animated.Value(1)).current;
+  const checkScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    StatusBar.setBarStyle("light-content");
     Animated.stagger(80, [
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 600,
+          duration: 550,
           useNativeDriver: true,
         }),
         Animated.timing(slideAnim, {
           toValue: 0,
-          duration: 600,
+          duration: 550,
           useNativeDriver: true,
         }),
       ]),
-      Animated.timing(cardAnim, {
+      Animated.spring(cardAnim, {
         toValue: 1,
-        duration: 500,
+        tension: 50,
+        friction: 9,
         useNativeDriver: true,
       }),
     ]).start();
   }, []);
 
-  const handlePressIn = () => {
-    Animated.spring(btnScale, {
-      toValue: 0.97,
+  // Animate checkmark when 10 digits entered
+  useEffect(() => {
+    Animated.spring(checkScale, {
+      toValue: phone.length === 10 ? 1 : 0,
+      tension: 60,
+      friction: 6,
       useNativeDriver: true,
     }).start();
-  };
-  const handlePressOut = () => {
+  }, [phone.length === 10]);
+
+  const handlePressIn = () =>
+    Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start();
+  const handlePressOut = () =>
     Animated.spring(btnScale, {
       toValue: 1,
       friction: 4,
       useNativeDriver: true,
     }).start();
-  };
 
   const handleSendOTP = async () => {
     if (!phone || phone.length !== 10) {
@@ -141,28 +205,20 @@ export default function LoginScreen() {
       );
       return;
     }
-    
     setLoading(true);
+
     try {
       const response = await apiClient.post(API_CONFIG.ENDPOINTS.SEND_OTP, {
-        phone: `+91${phone}`,
+        phoneNumber: `+91${phone}`,
+        type: "student",
       });
       
       if (response.data && (response.data.success || response.status === 200)) {
-        Alert.alert("Success", "OTP sent to your WhatsApp", [
-          {
-            text: "OK",
-            onPress: () => {
-              router.push({
-                pathname: "/auth/verify-otp",
-                params: { phone: `+91${phone}` },
-              });
-            },
-          },
-        ]);
-      } else {
-        throw new Error("Failed to send OTP");
-      }
+        router.push({
+          pathname: "/auth/verify-otp",
+          params: { phone: `+91${phone}` },
+        });
+      } else throw new Error("Failed to send OTP");
     } catch (error: any) {
       Alert.alert(
         "Error",
@@ -173,56 +229,91 @@ export default function LoginScreen() {
     }
   };
 
-  const cardOpacity = cardAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
   const cardTranslate = cardAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [24, 0],
   });
+  const isValid = phone.length === 10;
 
   return (
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      {/* ── Hero Header ── */}
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
+
+      {/* ── Hero ── */}
       <LinearGradient
         colors={[palette.navy, palette.navyMid, palette.navyLight]}
         style={styles.hero}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        {/* Decorative orbs */}
-        <FloatingOrb size={120} top={-30} left={width * 0.6} delay={0} />
-        <FloatingOrb size={80} top={80} left={-20} delay={600} />
-        <FloatingOrb size={50} top={40} left={width * 0.3} delay={1200} />
 
-        {/* Gold accent line */}
-        <View style={styles.accentLine} />
+        {/* Orbs */}
+        <FloatingOrb size={130} top={-35} left={width * 0.58} delay={0} />
+        <FloatingOrb size={80} top={70} left={-24} delay={600} />
+        <FloatingOrb size={48} top={30} left={width * 0.32} delay={1100} />
 
-        {/* Logo mark */}
+        <SafeAreaView edges={["top"]}>
+          {/* Top-right trust chip */}
+          <View style={styles.heroTopRow}>
+            <View style={styles.secureChip}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={12}
+                color={palette.gold}
+              />
+              <Text style={styles.secureChipText}>Verified & Secure</Text>
+            </View>
+          </View>
+        </SafeAreaView>
+
+        {/* Centered logo + text */}
         <Animated.View
           style={[
             styles.heroContent,
             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
           ]}
         >
-          <View style={styles.logoMark}>
-            <Text style={styles.logoIcon}>✦</Text>
+          {/* Logo mark */}
+          <View style={styles.logoWrap}>
+            <LinearGradient
+              colors={["rgba(232,168,56,0.22)", "rgba(232,168,56,0.08)"]}
+              style={styles.logoMark}
+            >
+              <Image source={require("../../assets/images/Logo.png")} style={styles.logoIcon} />
+            </LinearGradient>
+            {/* Orbit dot */}
+            <View style={styles.orbitDot}>
+              <Ionicons name="sparkles" size={10} color={palette.gold} />
+            </View>
           </View>
+
           <Text style={styles.heroTitle}>BookMySession</Text>
           <Text style={styles.heroTagline}>
             Connect with expert teachers,{"\n"}learn without limits.
           </Text>
+
+          {/* Feature pills */}
+          <View style={styles.featurePills}>
+            {["500+ Tutors", "All Subjects", "Book Instantly"].map((f) => (
+              <View key={f} style={styles.featurePill}>
+                <Text style={styles.featurePillText}>{f}</Text>
+              </View>
+            ))}
+          </View>
         </Animated.View>
 
-        {/* Bottom curve */}
+        {/* Curve */}
         <View style={styles.heroCurve} />
       </LinearGradient>
 
-      {/* ── Card Section ── */}
+      {/* ── Scrollable card area ── */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -232,33 +323,39 @@ export default function LoginScreen() {
         <Animated.View
           style={[
             styles.card,
-            {
-              opacity: cardOpacity,
-              transform: [{ translateY: cardTranslate }],
-            },
+            { opacity: cardAnim, transform: [{ translateY: cardTranslate }] },
           ]}
         >
-          {/* Card header */}
+          {/* Step indicator */}
+          <StepIndicator current={0} />
+
+          {/* Header */}
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Sign in</Text>
             <Text style={styles.cardSubtitle}>
-              We&apos;ll send a one-time code to verify your number
+              We&lsquo;ll send a one-time code to your WhatsApp
             </Text>
           </View>
 
-          {/* Divider */}
           <View style={styles.divider} />
 
-          {/* Phone field */}
+          {/* Phone input */}
           <View style={styles.fieldWrapper}>
             <Text style={styles.fieldLabel}>Mobile Number</Text>
-            <View style={[styles.inputRow, focused && styles.inputRowFocused]}>
-              {/* Country badge */}
-              <View style={styles.countryBadge}>
+
+            <View
+              style={[
+                styles.inputRow,
+                focused && styles.inputRowFocused,
+                isValid && styles.inputRowValid,
+              ]}
+            >
+              {/* Country selector */}
+              <TouchableOpacity style={styles.countryBadge} activeOpacity={0.7}>
                 <Text style={styles.countryFlag}>🇮🇳</Text>
                 <Text style={styles.countryCode}>+91</Text>
-                <Ionicons name="chevron-down" size={12} color={palette.muted} />
-              </View>
+                {/* <Ionicons name="chevron-down" size={11} color={palette.muted} /> */}
+              </TouchableOpacity>
 
               <View style={styles.inputDivider} />
 
@@ -275,28 +372,41 @@ export default function LoginScreen() {
                 onBlur={() => setFocused(false)}
               />
 
-              {phone.length === 10 && (
-                <View style={styles.validBadge}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={palette.gold}
-                  />
-                </View>
-              )}
+              {/* Animated checkmark */}
+              <Animated.View
+                style={[
+                  styles.validBadge,
+                  { transform: [{ scale: checkScale }] },
+                ]}
+              >
+                <Ionicons
+                  name="checkmark-circle"
+                  size={22}
+                  color={palette.gold}
+                />
+              </Animated.View>
             </View>
 
-            {/* Helper */}
-            <Text style={styles.helperText}>
-              <Ionicons name="logo-whatsapp" size={11} color={palette.muted} />{" "}
-              OTP will be sent via WhatsApp
-            </Text>
+            {/* Char count + helper row */}
+            <View style={styles.inputFooter}>
+              <View style={styles.helperRow}>
+                <Text style={styles.helperText}>OTP will send via WhatsApp</Text>
+              </View>
+              <Text
+                style={[styles.charCount, isValid && styles.charCountValid]}
+              >
+                {phone.length}/10
+              </Text>
+            </View>
           </View>
 
-          {/* CTA Button */}
+          {/* CTA */}
           <Animated.View style={{ transform: [{ scale: btnScale }] }}>
             <TouchableOpacity
-              style={[styles.ctaButton, loading && styles.ctaButtonLoading]}
+              style={[
+                styles.ctaButton,
+                (!isValid || loading) && styles.ctaButtonOff,
+              ]}
               onPress={handleSendOTP}
               onPressIn={handlePressIn}
               onPressOut={handlePressOut}
@@ -305,9 +415,9 @@ export default function LoginScreen() {
             >
               <LinearGradient
                 colors={
-                  loading
-                    ? [palette.goldLight, palette.goldLight]
-                    : [palette.gold, "#D4922A"]
+                  isValid && !loading
+                    ? [palette.gold, "#D4922A"]
+                    : ["#C8D4E0", "#B8C8D8"]
                 }
                 style={styles.ctaGradient}
                 start={{ x: 0, y: 0 }}
@@ -317,39 +427,58 @@ export default function LoginScreen() {
                   <ActivityIndicator color={palette.navy} size="small" />
                 ) : (
                   <View style={styles.ctaInner}>
-                    <Text style={styles.ctaText}>Send OTP</Text>
-                    <View style={styles.ctaArrow}>
+                    <Text
+                      style={[styles.ctaText, !isValid && styles.ctaTextOff]}
+                    >
+                      Send OTP
+                    </Text>
+                    {/* <View
+                      style={[
+                        styles.ctaArrow,
+                        isValid && styles.ctaArrowActive,
+                      ]}
+                    > */}
                       <Ionicons
                         name="arrow-forward"
-                        size={16}
-                        color={palette.navy}
+                        size={15}
+                        color={isValid ? palette.navy : "#90A4AE"}
                       />
-                    </View>
+                    {/* </View> */}
                   </View>
                 )}
               </LinearGradient>
             </TouchableOpacity>
+
+            {isValid && (
+              <Text style={styles.ctaHint}>⚡ Takes less than 10 seconds</Text>
+            )}
           </Animated.View>
 
-          {/* Separator */}
-          <View style={styles.orRow}>
+          {/* OR */}
+          {/* <View style={styles.orRow}>
             <View style={styles.orLine} />
             <Text style={styles.orText}>or</Text>
             <View style={styles.orLine} />
-          </View>
+          </View> */}
 
-          {/* Google Button */}
-          <TouchableOpacity style={styles.googleButton} activeOpacity={0.85}>
+          {/* Google */}
+          {/* <TouchableOpacity style={styles.googleButton} activeOpacity={0.85}>
             <View style={styles.googleIcon}>
-              {/* Simple G logo using coloured dots */}
               <Text style={styles.googleGlyph}>G</Text>
             </View>
             <Text style={styles.googleText}>Continue with Google</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
+
+          {/* Trust badges */}
+          <View style={styles.trustRow}>
+            <TrustBadge icon="lock-closed-outline" label="Encrypted" />
+            <TrustBadge icon="shield-checkmark-outline" label="Verified" />
+            <TrustBadge icon="people-outline" label="500+ Tutors" />
+          </View>
         </Animated.View>
 
         {/* Terms */}
-        <Animated.View style={[styles.termsRow, { opacity: cardOpacity }]}>
+        <Animated.View style={[styles.termsRow, { opacity: cardAnim }]}>
           <Text style={styles.termsText}>
             By continuing you agree to our{" "}
             <Text style={styles.termsLink}>Terms of Service</Text>
@@ -371,74 +500,119 @@ const styles = StyleSheet.create({
 
   // ── Hero ──
   hero: {
-    height: 270,
     overflow: "hidden",
-    position: "relative",
   },
   orb: {
     position: "absolute",
     borderRadius: 999,
-    backgroundColor: "rgba(232,168,56,0.12)",
+    backgroundColor: "rgba(232,168,56,0.11)",
   },
-  accentLine: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: palette.gold,
+  heroTopRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  secureChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(232,168,56,0.14)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: "rgba(232,168,56,0.25)",
+  },
+  secureChipText: {
+    fontSize: 10,
+    fontFamily: "Manrope_600SemiBold",
+    color: palette.goldLight,
+    letterSpacing: 0.3,
   },
   heroContent: {
-    flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    paddingTop: 24,
+    paddingTop: 14,
+    paddingBottom: 10,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  logoWrap: {
+    position: "relative",
+    marginBottom: 4,
   },
   logoMark: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: "rgba(232,168,56,0.18)",
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(232,168,56,0.4)",
+    borderColor: "rgba(232,168,56,0.38)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 14,
   },
   logoIcon: {
-    fontSize: 22,
+    height: 28,
+    width: 28,
+    resizeMode: "contain",
     color: palette.gold,
   },
+  orbitDot: {
+    position: "absolute",
+    // width: 8,
+    // height: 8,
+    borderRadius: 4,
+    // backgroundColor: palette.gold,
+    bottom: 2,
+    right: 0,
+    // borderWidth: 2,
+    // borderColor: palette.navyMid,
+  },
   heroTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontFamily: "Manrope_700Bold",
     color: palette.white,
-    letterSpacing: -0.5,
-    marginBottom: 8,
+    letterSpacing: -0.7,
   },
   heroTagline: {
     fontSize: 13,
     fontFamily: "Manrope_400Regular",
-    color: "rgba(255,255,255,0.60)",
+    color: "rgba(255,255,255,0.58)",
     textAlign: "center",
     lineHeight: 20,
   },
+  featurePills: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  featurePill: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+  featurePillText: {
+    fontSize: 10,
+    fontFamily: "Manrope_500Medium",
+    color: "rgba(255,255,255,0.60)",
+    letterSpacing: 0.3,
+  },
   heroCurve: {
-    position: "absolute",
-    bottom: -1,
-    left: 0,
-    right: 0,
-    height: 32,
+    height: 28,
     backgroundColor: palette.cream,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    marginTop: 10,
   },
 
   // ── Scroll ──
   scrollView: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 4,
     paddingBottom: 40,
   },
 
@@ -446,20 +620,78 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: palette.white,
     borderRadius: 24,
-    padding: 24,
+    padding: 22,
     shadowColor: palette.navy,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
     shadowRadius: 24,
     elevation: 6,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  cardHeader: { marginBottom: 20 },
+
+  // ── Step indicator ──
+  stepWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
+  stepItem: {
+    alignItems: "center",
+    gap: 4,
+  },
+  stepCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: palette.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  stepCircleDone: {
+    backgroundColor: palette.gold,
+    borderColor: palette.gold,
+  },
+  stepCircleActive: {
+    borderColor: palette.navy,
+    backgroundColor: palette.navy,
+  },
+  stepNum: {
+    fontSize: 11,
+    fontFamily: "Manrope_700Bold",
+    color: palette.muted,
+  },
+  stepNumActive: {
+    color: palette.gold,
+  },
+  stepLabel: {
+    fontSize: 10,
+    fontFamily: "Manrope_500Medium",
+    color: palette.muted,
+  },
+  stepLabelActive: {
+    color: palette.ink,
+    fontFamily: "Manrope_700Bold",
+  },
+  stepConnector: {
+    width: 36,
+    height: 2,
+    backgroundColor: palette.border,
+    marginHorizontal: 4,
+    marginBottom: 14,
+  },
+  stepConnectorDone: {
+    backgroundColor: palette.gold,
+  },
+
+  // Card header
+  cardHeader: { marginBottom: 16 },
   cardTitle: {
     fontSize: 22,
     fontFamily: "Manrope_700Bold",
     color: palette.ink,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   cardSubtitle: {
     fontSize: 13,
@@ -470,19 +702,19 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: palette.border,
-    marginBottom: 20,
-    opacity: 0.6,
+    marginBottom: 18,
+    opacity: 0.55,
   },
 
   // ── Input ──
-  fieldWrapper: { marginBottom: 24 },
+  fieldWrapper: { marginBottom: 20 },
   fieldLabel: {
-    fontSize: 12,
-    fontFamily: "Manrope_600SemiBold",
+    fontSize: 11,
+    fontFamily: "Manrope_700Bold",
     color: palette.ink,
     textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 10,
+    letterSpacing: 0.9,
+    marginBottom: 9,
   },
   inputRow: {
     flexDirection: "row",
@@ -491,25 +723,28 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: palette.border,
-    overflow: "hidden",
     height: 56,
+    overflow: "hidden",
   },
   inputRowFocused: {
     borderColor: palette.gold,
     backgroundColor: palette.white,
     shadowColor: palette.gold,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.16,
     shadowRadius: 8,
     elevation: 3,
+  },
+  inputRowValid: {
+    borderColor: palette.gold,
   },
   countryBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
   },
-  countryFlag: { fontSize: 18 },
+  countryFlag: { fontSize: 17 },
   countryCode: {
     fontSize: 14,
     fontFamily: "Manrope_600SemiBold",
@@ -522,34 +757,56 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     fontSize: 16,
     fontFamily: "Manrope_400Regular",
     color: palette.ink,
     height: "100%",
+    letterSpacing: 0.5,
   },
-  validBadge: { paddingRight: 14 },
+  validBadge: {
+    paddingRight: 13,
+  },
+  inputFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 7,
+    marginHorizontal: 2,
+  },
+  helperRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   helperText: {
     fontSize: 11,
     fontFamily: "Manrope_400Regular",
     color: palette.muted,
-    marginTop: 8,
-    marginLeft: 2,
+  },
+  charCount: {
+    fontSize: 11,
+    fontFamily: "Manrope_600SemiBold",
+    color: palette.muted,
+  },
+  charCountValid: {
+    color: palette.gold,
   },
 
   // ── CTA ──
   ctaButton: {
     borderRadius: 14,
     overflow: "hidden",
-    marginBottom: 20,
+    marginBottom: 6,
     shadowColor: palette.gold,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
+    shadowOpacity: 0.32,
+    shadowRadius: 16,
     elevation: 5,
   },
-  ctaButtonLoading: {
-    shadowOpacity: 0.1,
+  ctaButtonOff: {
+    shadowOpacity: 0,
+    elevation: 0,
   },
   ctaGradient: {
     paddingVertical: 17,
@@ -567,21 +824,34 @@ const styles = StyleSheet.create({
     color: palette.navy,
     letterSpacing: 0.2,
   },
+  ctaTextOff: { color: "#90A4AE" },
   ctaArrow: {
-    width: 28,
-    height: 28,
-    // borderRadius: 8,
-    // backgroundColor: "rgba(13,27,42,0.12)",
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    backgroundColor: "rgba(0,0,0,0.06)",
     justifyContent: "center",
     alignItems: "center",
   },
+  ctaArrowActive: {
+    backgroundColor: "rgba(13,27,42,0.12)",
+  },
+  ctaHint: {
+    fontSize: 11,
+    fontFamily: "Manrope_400Regular",
+    color: palette.muted,
+    textAlign: "center",
+    marginTop: 6,
+    marginBottom: 16,
+  },
 
-  // ── OR row ──
+  // ── OR ──
   orRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 14,
+    marginTop: 4,
   },
   orLine: {
     flex: 1,
@@ -589,8 +859,8 @@ const styles = StyleSheet.create({
     backgroundColor: palette.border,
   },
   orText: {
-    fontSize: 12,
-    fontFamily: "Manrope_500Medium",
+    fontSize: 11,
+    fontFamily: "Manrope_600SemiBold",
     color: palette.muted,
     textTransform: "uppercase",
     letterSpacing: 1,
@@ -606,13 +876,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: palette.border,
-    paddingVertical: 15,
+    paddingVertical: 14,
+    marginBottom: 18,
   },
   googleIcon: {
     width: 26,
     height: 26,
     borderRadius: 6,
-    backgroundColor: "#F0F0F0",
+    backgroundColor: "#F0F4FF",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -623,6 +894,30 @@ const styles = StyleSheet.create({
   },
   googleText: {
     fontSize: 14,
+    fontFamily: "Manrope_600SemiBold",
+    color: palette.ink,
+  },
+
+  // ── Trust badges ──
+  trustRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+    marginTop: 10,
+  },
+  trustBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: palette.goldPale,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: palette.goldBorder,
+  },
+  trustBadgeText: {
+    fontSize: 10,
     fontFamily: "Manrope_600SemiBold",
     color: palette.ink,
   },

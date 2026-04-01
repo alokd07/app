@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -6,8 +6,6 @@ import {
   FlatList,
   Dimensions,
   TouchableOpacity,
-  ViewToken,
-  ImageBackground,
   Animated,
   StatusBar,
 } from "react-native";
@@ -18,419 +16,279 @@ import { Ionicons } from "@expo/vector-icons";
 
 const { width, height } = Dimensions.get("window");
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
 const palette = {
-  navy: "#0D1B2A",
-  navyMid: "#112236",
+  navy: "#020817",
   gold: "#E8A838",
   goldLight: "#F2C26A",
   white: "#FFFFFF",
-  cream: "#FAF7F2",
-  ink: "#0D1B2A",
-  muted: "#8A9BB0",
-  border: "#D9E2EE",
+  muted: "rgba(255, 255, 255, 0.5)",
+  glass: "rgba(255, 255, 255, 0.06)",
 };
 
-// ─── Slide Data ───────────────────────────────────────────────────────────────
-interface Slide {
-  id: string;
-  tag: string;
-  title: string;
-  description: string;
-  image: string;
-  accent: string; // overlay tint
-}
-
-const slides: Slide[] = [
+const slides = [
   {
     id: "1",
-    tag: "Progress Tracking",
-    title: "Bringing Quality\nLearning to Every\nStudent",
+    tag: "AI-POWERED MATCHING",
+    title: "Precision Matching\nFor Better Learning",
     description:
-      "Track your progress, master new skills, and stay ahead with powerful course tools.",
+      "Our AI analyzes your needs to find the one tutor who perfectly fits your learning style.",
     image:
-      "https://images.unsplash.com/photo-1577896851231-70ef18881754?w=800&q=80",
-    accent: "rgba(13,27,42,0.62)",
+      "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&q=80",
   },
   {
     id: "2",
-    tag: "Expert Teachers",
-    title: "Find the Right\nTeacher for\nEvery Subject",
+    tag: "VERIFIED EXPERTS",
+    title: "Safety & Quality\nIn Every Session",
     description:
-      "Connect with qualified tutors and book sessions that perfectly fit your schedule.",
+      "Every tutor undergoes a 5-step verification process to ensure a secure environment.",
     image:
-      "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&q=80",
-    accent: "rgba(13,27,42,0.58)",
+      "https://images.unsplash.com/photo-1544531585-9847b68c8c86?w=800&q=80",
   },
   {
     id: "3",
-    tag: "Learn Anywhere",
-    title: "Study on Your\nTerms, At Your\nOwn Pace",
+    tag: "FLEXIBLE BOOKING",
+    title: "Your Education,\nOn Your Schedule",
     description:
-      "Access lessons online or offline — learning that moves with you, wherever you go.",
+      "Book instant offline sessions or schedule in advance. Mastery is now on your terms.",
     image:
-      "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800&q=80",
-    accent: "rgba(13,27,42,0.55)",
+      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&q=80",
   },
 ];
 
-// ─── Pill Tag ─────────────────────────────────────────────────────────────────
-function Tag({ label }: { label: string }) {
+// ─── Sub-Component: Pagination Dots ──────────────────────────────────────────
+const Pagination = ({ scrollX }: { scrollX: Animated.Value }) => {
   return (
-    <View style={styles.tag}>
-      <View style={styles.tagDot} />
-      <Text style={styles.tagText}>{label}</Text>
+    <View style={styles.paginationContainer}>
+      {slides.map((_, i) => {
+        // We interpolate SCALE instead of WIDTH
+        const scaleXAnim = scrollX.interpolate({
+          inputRange: [(i - 1) * width, i * width, (i + 1) * width],
+          outputRange: [1, 2.5, 1], // 1x size to 2.5x size
+          extrapolate: "clamp",
+        });
+
+        const opacityAnim = scrollX.interpolate({
+          inputRange: [(i - 1) * width, i * width, (i + 1) * width],
+          outputRange: [0.3, 1, 0.3],
+          extrapolate: "clamp",
+        });
+
+        return (
+          <Animated.View
+            key={i}
+            style={[
+              styles.dot,
+              {
+                opacity: opacityAnim,
+                transform: [{ scaleX: scaleXAnim }], // Use transform here
+              },
+            ]}
+          />
+        );
+      })}
     </View>
   );
-}
-
-// ─── Single Slide ─────────────────────────────────────────────────────────────
-function SlideItem({
-  item,
-  index,
-  scrollX,
-}: {
-  item: Slide;
-  index: number;
-  scrollX: Animated.Value;
-}) {
-  const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
-
-  const titleTranslate = scrollX.interpolate({
-    inputRange,
-    outputRange: [60, 0, -60],
-  });
-  const titleOpacity = scrollX.interpolate({
-    inputRange,
-    outputRange: [0, 1, 0],
-  });
-  const descTranslate = scrollX.interpolate({
-    inputRange,
-    outputRange: [80, 0, -80],
-  });
-
-  return (
-    <View style={styles.slide}>
-      {/* Full bleed image */}
-      <ImageBackground
-        source={{ uri: item.image }}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
-
-      {/* Bottom-up gradient overlay */}
-      <LinearGradient
-        colors={["transparent", item.accent, palette.navy]}
-        locations={[0.2, 0.55, 1]}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Content anchored to bottom */}
-      <View style={styles.slideContent}>
-        <Animated.View
-          style={{
-            opacity: titleOpacity,
-            transform: [{ translateY: titleTranslate }],
-          }}
-        >
-          <Tag label={item.tag} />
-          <Text style={styles.slideTitle}>{item.title}</Text>
-        </Animated.View>
-
-        <Animated.View
-          style={{
-            opacity: titleOpacity,
-            transform: [{ translateY: descTranslate }],
-          }}
-        >
-          <Text style={styles.slideDesc}>{item.description}</Text>
-        </Animated.View>
-      </View>
-    </View>
-  );
-}
+};
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function OnboardingScreen() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
-  const btnScale = useRef(new Animated.Value(1)).current;
-
-  // Entrance fade
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 700,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems.length > 0) {
-        setCurrentIndex(viewableItems[0].index ?? 0);
-      }
-    },
-  ).current;
-
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
-
-  const isLast = currentIndex === slides.length - 1;
+  const flatListRef = useRef<FlatList>(null);
+  const [index, setIndex] = useState(0);
 
   const handleNext = () => {
-    if (!isLast) {
-      flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
+    if (index < slides.length - 1) {
+      flatListRef.current?.scrollToIndex({ index: index + 1 });
     } else {
       router.replace("/auth/login");
     }
   };
 
-  const handleSkip = () => router.replace("/auth/login");
-
-  const handlePressIn = () =>
-    Animated.spring(btnScale, { toValue: 0.94, useNativeDriver: true }).start();
-  const handlePressOut = () =>
-    Animated.spring(btnScale, {
-      toValue: 1,
-      friction: 4,
-      useNativeDriver: true,
-    }).start();
-
   return (
-    <View style={styles.root}>
-      <StatusBar
-        barStyle="light-content"
-        translucent
-        backgroundColor="transparent"
-      />
+    <View style={styles.container}>
+      <StatusBar backgroundColor="transparent" translucent barStyle="light-content" />
 
-      {/* Slides */}
+      {/* ── Background Parallax Image ── */}
+      <View style={StyleSheet.absoluteFill}>
+        {slides.map((slide, i) => {
+          const opacity = scrollX.interpolate({
+            inputRange: [(i - 1) * width, i * width, (i + 1) * width],
+            outputRange: [0, 1, 0],
+          });
+          const scale = scrollX.interpolate({
+            inputRange: [(i - 1) * width, i * width, (i + 1) * width],
+            outputRange: [1.2, 1, 1.2],
+          });
+          return (
+            <Animated.Image
+              key={slide.id}
+              source={{ uri: slide.image }}
+              style={[
+                StyleSheet.absoluteFill,
+                { opacity, transform: [{ scale }] },
+              ]}
+              resizeMode="cover"
+            />
+          );
+        })}
+        <LinearGradient
+          colors={["rgba(2,8,23,0.2)", "rgba(2,8,23,0.8)", palette.navy]}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
+
+      {/* ── Content Slider ── */}
       <Animated.FlatList
         ref={flatListRef}
         data={slides}
-        keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
           { useNativeDriver: true },
         )}
-        scrollEventThrottle={16}
-        renderItem={({ item, index }) => (
-          <SlideItem item={item} index={index} scrollX={scrollX} />
-        )}
-        style={{ opacity: fadeAnim }}
+        onMomentumScrollEnd={(e) =>
+          setIndex(Math.round(e.nativeEvent.contentOffset.x / width))
+        }
+        renderItem={({ item, index: i }) => {
+          const translateY = scrollX.interpolate({
+            inputRange: [(i - 1) * width, i * width, (i + 1) * width],
+            outputRange: [100, 0, 100],
+          });
+          return (
+            <View style={styles.slide}>
+              <Animated.View
+                style={[styles.contentCard, { transform: [{ translateY }] }]}
+              >
+                <View style={styles.glassTag}>
+                  <Text style={styles.tagText}>{item.tag}</Text>
+                </View>
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.description}>{item.description}</Text>
+              </Animated.View>
+            </View>
+          );
+        }}
       />
 
-      {/* ── Floating Footer ── */}
-      <SafeAreaView style={styles.footer} edges={["bottom"]}>
-        {/* Dot pagination */}
-        <View style={styles.dots}>
-          {slides.map((_, i) => {
-            const dotScale = scrollX.interpolate({
-              inputRange: [(i - 1) * width, i * width, (i + 1) * width],
-              outputRange: [1, 3.5, 1], // ~8 → 28 visually
-              extrapolate: "clamp",
-            });
-            const dotOpacity = scrollX.interpolate({
-              inputRange: [(i - 1) * width, i * width, (i + 1) * width],
-              outputRange: [0.35, 1, 0.35],
-              extrapolate: "clamp",
-            });
-            return (
-              <Animated.View
-                key={i}
-                style={[
-                  styles.dot,
-                  {
-                    transform: [{ scaleX: dotScale }],
-                    opacity: dotOpacity,
-                  },
-                ]}
-              />
-            );
-          })}
-        </View>
+      {/* ── Footer ── */}
+      <SafeAreaView style={styles.footer}>
+        <Pagination scrollX={scrollX} />
 
-        {/* Navigation row */}
-        <View style={styles.navRow}>
-          {/* Skip */}
-          <TouchableOpacity
-            onPress={handleSkip}
-            activeOpacity={0.7}
-            style={styles.skipBtn}
-          >
+        <View style={styles.buttonRow}>
+          <TouchableOpacity onPress={() => router.replace("/auth/login")}>
             <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
 
-          {/* Next / Get Started */}
-          <Animated.View style={{ transform: [{ scale: btnScale }] }}>
-            <TouchableOpacity
-              onPress={handleNext}
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              activeOpacity={1}
-              style={styles.nextBtn}
+          <TouchableOpacity onPress={handleNext} activeOpacity={0.8}>
+            <LinearGradient
+              colors={[palette.gold, palette.goldLight]}
+              style={styles.nextButton}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
             >
-              <LinearGradient
-                colors={[palette.gold, "#D4922A"]}
-                style={styles.nextGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.nextText}>
-                  {isLast ? "Get Started" : "Next"}
-                </Text>
-                <View style={styles.nextArrow}>
-                  <Ionicons
-                    name={isLast ? "rocket-outline" : "arrow-forward"}
-                    size={16}
-                    color={palette.navy}
-                  />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
+              <Text style={styles.nextButtonText}>
+                {index === slides.length - 1 ? "Get Started" : "Continue"}
+              </Text>
+              <Ionicons name="arrow-forward" size={18} color={palette.navy} />
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     </View>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: palette.navy,
-  },
-
-  // ── Slide ──
+  container: { flex: 1, backgroundColor: palette.navy },
   slide: {
     width,
     height,
     justifyContent: "flex-end",
-  },
-  slideContent: {
-    paddingHorizontal: 28,
-    paddingBottom: 160,
-    gap: 14,
-  },
-  tag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 12,
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(232,168,56,0.18)",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: "rgba(232,168,56,0.35)",
-  },
-  tagDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: palette.gold,
-  },
-  tagText: {
-    fontSize: 11,
-    fontFamily: "Manrope_600SemiBold",
-    color: palette.goldLight,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  slideTitle: {
-    fontSize: 36,
-    fontFamily: "Manrope_700Bold",
-    color: palette.white,
-    lineHeight: 44,
-    letterSpacing: -0.8,
-    marginBottom: 4,
-  },
-  slideDesc: {
-    fontSize: 14,
-    fontFamily: "Manrope_400Regular",
-    color: "rgba(255,255,255,0.65)",
-    lineHeight: 22,
-    maxWidth: width * 0.78,
+    paddingBottom: height * 0.25,
   },
 
-  // ── Footer ──
+  // ── Content Card ──
+  contentCard: {
+    paddingHorizontal: 30,
+    alignItems: "flex-start",
+  },
+  glassTag: {
+    backgroundColor: palette.glass,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    marginBottom: 20,
+  },
+  tagText: {
+    color: palette.gold,
+    fontSize: 10,
+    fontFamily: "Manrope_800ExtraBold",
+    letterSpacing: 1.5,
+  },
+  title: {
+    color: palette.white,
+    fontSize: 32,
+    fontFamily: "Manrope_800ExtraBold",
+    lineHeight: 40,
+    marginBottom: 15,
+  },
+  description: {
+    color: palette.muted,
+    fontSize: 15,
+    fontFamily: "Manrope_400Regular",
+    lineHeight: 24,
+  },
+
+  // ── Footer & Navigation ──
   footer: {
     position: "absolute",
     bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 28,
-    paddingTop: 16,
-    paddingBottom: 24,
+    width: "100%",
+    paddingHorizontal: 30,
+    paddingBottom: 40,
   },
-  dots: {
+  paginationContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginBottom: 20,
+    marginBottom: 30,
+    gap: 8,
   },
   dot: {
-    width: 8,
-    height: 4,
+    height: 6,
+    width: 8, // Fixed base width
     borderRadius: 2,
     backgroundColor: palette.gold,
+    marginHorizontal: 4, // Added margin here to prevent dots overlapping when scaled
   },
-  navRow: {
+  buttonRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-  },
-  skipBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    alignItems: "center",
   },
   skipText: {
-    fontSize: 15,
+    color: palette.muted,
+    fontSize: 14,
     fontFamily: "Manrope_600SemiBold",
-    color: "rgba(255,255,255,0.50)",
-    letterSpacing: 0.2,
   },
-  nextBtn: {
-    borderRadius: 14,
-    overflow: "hidden",
-    shadowColor: palette.gold,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  nextGradient: {
+  nextButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    paddingLeft: 24,
-    paddingRight: 14,
+    paddingHorizontal: 25,
+    paddingVertical: 15,
+    borderRadius: 16,
     gap: 10,
+    shadowColor: palette.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  nextText: {
-    fontSize: 15,
-    fontFamily: "Manrope_700Bold",
+  nextButtonText: {
     color: palette.navy,
-    letterSpacing: 0.2,
-  },
-  nextArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "rgba(13,27,42,0.12)",
-    justifyContent: "center",
-    alignItems: "center",
+    fontSize: 15,
+    fontFamily: "Manrope_800ExtraBold",
   },
 });
