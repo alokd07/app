@@ -51,13 +51,6 @@ export default function RootLayout() {
           },
         }}
       >
-        <Stack.Screen
-          name="student-profile-setup"
-          options={{
-            title: "Profile Setup",
-            headerShown: false,
-          }}
-        />
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen
@@ -84,6 +77,7 @@ export default function RootLayout() {
           name="teacher/[id]"
           options={{
             title: "Teacher Profile",
+            headerShown: false,
           }}
         />
         <Stack.Screen
@@ -117,13 +111,13 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
-        {/* <Stack.Screen
+        <Stack.Screen
           name="student-profile-setup"
           options={{
             title: "Profile Setup",
             headerShown: false,
           }}
-        /> */}
+        />
       </Stack>
     </SafeAreaProvider>
   );
