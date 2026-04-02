@@ -7,6 +7,7 @@ import {
   Animated,
   Platform,
   Dimensions,
+  StatusBar,
 } from "react-native";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -244,14 +245,17 @@ function CustomTabBar({ state, navigation }: any) {
 // ─── Layout ────────────────────────────────────────────────────────────────────
 export default function TabLayout() {
   return (
-    <Tabs
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false, animation: "fade" }}
-    >
-      {TABS.map((tab) => (
-        <Tabs.Screen key={tab.name} name={tab.name} />
-      ))}
-    </Tabs>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor={P.cream} />
+      <Tabs
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{ headerShown: false, animation: "fade" }}
+      >
+        {TABS.map((tab) => (
+          <Tabs.Screen key={tab.name} name={tab.name} />
+        ))}
+      </Tabs>
+    </>
   );
 }
 

@@ -11,7 +11,6 @@ import {
   RefreshControl,
   Animated,
   Dimensions,
-  StatusBar,
   ScrollView,
 } from "react-native";
 import { router } from "expo-router";
@@ -621,7 +620,7 @@ export default function HomeScreen() {
             <TouchableOpacity style={styles.iconBtn}>
               <Ionicons name="search-outline" size={18} color={palette.ink} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn}>
+            <TouchableOpacity onPress={() => router.push("/notifications")} style={styles.iconBtn}>
               <Ionicons
                 name="notifications-outline"
                 size={18}
@@ -839,11 +838,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar
-        barStyle="dark-content"
-        translucent
-        backgroundColor="transparent"
-      />
       <FlatList
         data={teachers}
         renderItem={({ item, index }) => (

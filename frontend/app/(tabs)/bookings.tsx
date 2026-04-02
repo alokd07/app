@@ -10,7 +10,6 @@ import {
   Image,
   Animated,
   Dimensions,
-  StatusBar,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -302,7 +301,6 @@ export default function BookingsScreen() {
     loadUser();
   }, []);
 
-
   // Stats Logic
   const stats = [
     { label: "Active", value: "3", icon: "flash" },
@@ -312,8 +310,6 @@ export default function BookingsScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
-
       {/* ── Header ── */}
       <View style={styles.headerNew}>
         <View>

@@ -118,6 +118,13 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="notifications"
+          options={{
+            title: "Notifications",
+            headerShown: false,
+          }}
+        />
       </Stack>
     </SafeAreaProvider>
   );
