@@ -8,13 +8,15 @@ import {
   ActivityIndicator,
   Animated,
   ScrollView,
+  Platform,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { formatCurrency } from "../src/utils/helpers";
-import { RAZORPAY_CONFIG } from "../src/config/api";
+import { API_CONFIG, RAZORPAY_CONFIG } from "../src/config/api";
+import apiClient from "../src/services/api";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
 const P = {
@@ -77,6 +79,13 @@ export default function PaymentScreen() {
 
   const [processing, setProcessing] = useState(false);
 
+  type RazorpayOrderResponse = {
+    orderId?: string;
+    order_id?: string;
+    amount?: number;
+    currency?: string;
+  };
+
   // Entrance anims
   const fadeY = useRef(new Animated.Value(20)).current;
   const fade = useRef(new Animated.Value(0)).current;
@@ -102,28 +111,120 @@ export default function PaymentScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fade, fadeY, heroS]);
 
-  const handlePayment = () => {
-    setProcessing(true);
+  const completePaymentAndNavigate = () => {
+    router.replace({
+      pathname: "/booking-confirmation",
+      params: { bookingId, teacherName, date, time, amount },
+    });
+  };
+
+  const runDemoPayment = () => {
     setTimeout(() => {
       setProcessing(false);
       Alert.alert(
-        "Payment Successful! 🎉",
+        "Payment Successful!",
         "Your booking has been confirmed",
         [
           {
             text: "View Booking",
-            onPress: () =>
-              router.replace({
-                pathname: "/booking-confirmation",
-                params: { bookingId, teacherName, date, time, amount },
-              }),
+            onPress: completePaymentAndNavigate,
           },
         ],
         { cancelable: false },
       );
     }, 2000);
+  };
+
+  const handlePayment = async () => {
+    setProcessing(true);
+
+    if (!RAZORPAY_CONFIG.ENABLED) {
+      runDemoPayment();
+      return;
+    }
+
+    if (Platform.OS === "web") {
+      setProcessing(false);
+      Alert.alert(
+        "Unsupported Platform",
+        "Razorpay native checkout is available only on Android/iOS builds.",
+      );
+      return;
+    }
+
+    try {
+      const orderRes = await apiClient.post(
+        API_CONFIG.ENDPOINTS.RAZORPAY_CREATE_ORDER,
+        {
+          bookingId,
+          amount: amountNum,
+          currency: "INR",
+        },
+      );
+
+      const orderData: RazorpayOrderResponse =
+        orderRes?.data?.data || orderRes?.data || {};
+      const orderId = orderData.orderId || orderData.order_id;
+
+      if (!orderId) {
+        throw new Error("Unable to create Razorpay order");
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const RazorpayCheckout = require("react-native-razorpay").default;
+
+      const paymentResult = await RazorpayCheckout.open({
+        key: RAZORPAY_CONFIG.KEY_ID,
+        amount: Math.round(amountNum * 100),
+        currency: orderData.currency || "INR",
+        name: "BookMySession",
+        description: `Session booking with ${teacherName || "teacher"}`,
+        order_id: orderId,
+        prefill: {
+          name: "Student",
+        },
+        theme: {
+          color: P.navy,
+        },
+      });
+
+      await apiClient.post(API_CONFIG.ENDPOINTS.RAZORPAY_VERIFY_PAYMENT, {
+        bookingId,
+        razorpay_order_id: paymentResult?.razorpay_order_id,
+        razorpay_payment_id: paymentResult?.razorpay_payment_id,
+        razorpay_signature: paymentResult?.razorpay_signature,
+      });
+
+      setProcessing(false);
+      Alert.alert("Payment Successful!", "Your booking has been confirmed", [
+        {
+          text: "View Booking",
+          onPress: completePaymentAndNavigate,
+        },
+      ]);
+    } catch (err: any) {
+      setProcessing(false);
+
+      const errorText =
+        err?.description ||
+        err?.error?.description ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Payment failed. Please try again.";
+
+      if (
+        (typeof errorText === "string" &&
+          errorText.toLowerCase().includes("cancel")) ||
+        err?.code === 2
+      ) {
+        Alert.alert("Payment Cancelled", "You cancelled the payment flow.");
+        return;
+      }
+
+      Alert.alert("Payment Failed", errorText);
+    }
   };
 
   const amountNum = parseFloat(amount || "0");
@@ -257,8 +358,8 @@ export default function PaymentScreen() {
                 <Text style={styles.testCardTitle}>Demo Mode</Text>
               </View>
               <Text style={styles.testCardText}>
-                Payment is simulated. Tap "Pay Now" to complete a mock
-                transaction and proceed to confirmation.
+                Payment is simulated. Tap Pay Now to complete a mock transaction
+                and proceed to confirmation.
               </Text>
             </View>
           )}

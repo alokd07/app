@@ -290,7 +290,8 @@ const styles = StyleSheet.create({
   },
 
   androidBg: {
-    backgroundColor: "rgba(250,247,242,0.97)",
+    // backgroundColor: "rgba(250,247,242,0.97)",
+    backgroundColor: "rgba(13,27,42,0.97)",
   },
 
   goldPill: {

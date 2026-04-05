@@ -676,7 +676,7 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Your Progress</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/learning-progress')}>
             <Text style={styles.seeAll}>View Details</Text>
           </TouchableOpacity>
         </View>
@@ -1539,7 +1539,7 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: "absolute",
-    bottom: 96,
+    bottom: 102,
     right: 20,
     // Note: We don't set width here so it expands with the button
     height: 50,

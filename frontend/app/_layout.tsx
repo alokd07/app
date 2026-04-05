@@ -11,6 +11,7 @@ import {
 } from "@expo-google-fonts/manrope";
 import { colors } from "../src/theme/colors";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import CentralizedHeader from "../components/CentralizedHeader";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -41,14 +42,8 @@ export default function RootLayout() {
       <StatusBar backgroundColor={colors.primary} />
       <Stack
         screenOptions={{
-          headerStyle: {
-            backgroundColor: colors.primary,
-          },
-          headerTintColor: colors.white,
-          headerTitleStyle: {
-            fontWeight: "bold",
-            fontFamily: "Manrope_700Bold",
-          },
+          header: (props) => <CentralizedHeader {...props} />,
+          contentStyle: { backgroundColor: colors.white },
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -122,7 +117,12 @@ export default function RootLayout() {
           name="notifications"
           options={{
             title: "Notifications",
-            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="learning-progress"
+          options={{
+            title: "Learning Progress",
           }}
         />
       </Stack>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -329,7 +329,16 @@ export default function NotificationsScreen() {
   const [notifs, setNotifs] = useState<Notification[]>(RAW_NOTIFS);
   const [filter, setFilter] = useState("all");
 
+  const summaryOpacity = useRef(new Animated.Value(0)).current;
+  const summaryTranslateY = useRef(new Animated.Value(16)).current;
+
   const unreadCount = notifs.filter((n) => !n.read).length;
+  const bookingUnread = notifs.filter(
+    (n) => n.type === "booking" && !n.read,
+  ).length;
+  const paymentUnread = notifs.filter(
+    (n) => n.type === "payment" && !n.read,
+  ).length;
 
   const markRead = (id: string) => {
     setNotifs((prev) =>
@@ -346,59 +355,84 @@ export default function NotificationsScreen() {
 
   const sections = groupNotifications(filtered);
 
+  useEffect(() => {
+    if (unreadCount <= 0) return;
+
+    summaryOpacity.setValue(0);
+    summaryTranslateY.setValue(16);
+
+    Animated.parallel([
+      Animated.timing(summaryOpacity, {
+        toValue: 1,
+        duration: 260,
+        useNativeDriver: true,
+      }),
+      Animated.spring(summaryTranslateY, {
+        toValue: 0,
+        damping: 16,
+        stiffness: 140,
+        mass: 0.9,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [summaryOpacity, summaryTranslateY, unreadCount]);
+
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
-      {/* ── Nav ── */}
-      <View style={styles.nav}>
-        <TouchableOpacity
-          style={styles.navBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="chevron-back" size={18} color={P.ink} />
-        </TouchableOpacity>
-
-        <View>
-          <Text style={styles.eyebrow}>Activity</Text>
-          <Text style={styles.navTitle}>
-            Notifications
-            {unreadCount > 0 && (
-              <Text style={styles.navUnreadCount}> {unreadCount}</Text>
-            )}
-          </Text>
-        </View>
-
-        {unreadCount > 0 ? (
-          <TouchableOpacity
-            style={styles.markAllBtn}
-            onPress={markAllRead}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.markAllText}>Mark all read</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 80 }} />
-        )}
-      </View>
-
-      {/* ── Unread summary banner ── */}
+    <SafeAreaView style={styles.root} edges={["left", "right"]}>
       {unreadCount > 0 && (
-        <LinearGradient
-          colors={[P.navy, P.navyMid]}
-          style={styles.summaryBanner}
-        >
-          <View style={styles.summaryBannerOrb} />
-          <View style={styles.summaryIconBox}>
-            <Ionicons name="notifications" size={14} color={P.gold} />
-          </View>
-          <Text style={styles.summaryText}>
-            You have{" "}
-            <Text style={{ color: P.gold, fontFamily: "Manrope_700Bold" }}>
-              {unreadCount} unread
-            </Text>{" "}
-            notification{unreadCount > 1 ? "s" : ""}
-          </Text>
-        </LinearGradient>
+        <View style={styles.headerContainer}>
+          <Animated.View
+            style={{
+              opacity: summaryOpacity,
+              transform: [{ translateY: summaryTranslateY }],
+            }}
+          >
+            <LinearGradient
+              colors={["#FFFFFF", "#FFF7E8"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.summaryCard}
+            >
+              <View style={styles.summaryRail} />
+
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryMetricCol}>
+                  <Text style={styles.summaryMetricValue}>{unreadCount}</Text>
+                  <Text style={styles.summaryMetricLabel}>Unread</Text>
+                </View>
+
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryContent}>
+                  <Text style={styles.summaryTitle}>
+                    Inbox needs a quick check
+                  </Text>
+                  <Text style={styles.summarySubtext}>
+                    {bookingUnread} booking{bookingUnread > 1 ? "s" : ""} and{" "}
+                    {paymentUnread} payment{paymentUnread > 1 ? "s" : ""}{" "}
+                    pending.
+                  </Text>
+
+                  <TouchableOpacity
+                    onPress={markAllRead}
+                    activeOpacity={0.85}
+                    style={styles.summaryActionBtn}
+                  >
+                    <Text style={styles.summaryActionText}>
+                      Mark all as read
+                    </Text>
+                    <Ionicons name="arrow-forward" size={14} color={P.white} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Decorative Background Element */}
+              <View style={styles.cardCircle} />
+              <View style={styles.cardCircleTwo} />
+              <View style={styles.cardCircleThree} />
+            </LinearGradient>
+          </Animated.View>
+        </View>
       )}
 
       {/* ── Filter chips ── */}
@@ -480,6 +514,264 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: P.cream },
 
+  headerContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: P.cream,
+  },
+  headerHero: {
+    borderRadius: 28,
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(13,27,42,0.05)",
+  },
+  heroGlowTop: {
+    position: "absolute",
+    top: -42,
+    right: -30,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "rgba(255,255,255,0.55)",
+  },
+  heroGlowBottom: {
+    position: "absolute",
+    bottom: -56,
+    left: -24,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(232,168,56,0.16)",
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 60,
+    marginTop: 6,
+  },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 44 / 2,
+    backgroundColor: "rgba(255,255,255,0.78)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  centerTitle: {
+    alignItems: "center",
+  },
+  eyebrow: {
+    fontSize: 10,
+    fontFamily: "Manrope_800ExtraBold",
+    color: P.muted,
+    letterSpacing: 2,
+    marginBottom: -2,
+  },
+  mainTitle: {
+    fontSize: 22,
+    fontFamily: "Manrope_800ExtraBold",
+    color: P.ink,
+  },
+  profileBtn: {
+    position: "relative",
+  },
+  avatarHalo: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.5)",
+  },
+  avatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 44 / 2,
+    backgroundColor: P.navy,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: P.white,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+  },
+  avatarText: {
+    color: P.gold,
+    fontFamily: "Manrope_700Bold",
+    fontSize: 14,
+  },
+  activeDot: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: P.gold,
+    borderWidth: 2,
+    borderColor: P.cream,
+  },
+
+  // Summary Card
+  summaryCard: {
+    marginTop: 14,
+    borderRadius: 22,
+    padding: 16,
+    overflow: "hidden",
+    position: "relative",
+    borderWidth: 1,
+    borderColor: "rgba(13,27,42,0.08)",
+    shadowColor: P.navy,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  summaryRail: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 5,
+    backgroundColor: P.gold,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 3,
+  },
+  summaryMetricCol: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 82,
+  },
+  summaryMetricValue: {
+    fontSize: 34,
+    lineHeight: 36,
+    color: P.navy,
+    fontFamily: "Manrope_800ExtraBold",
+  },
+  summaryMetricLabel: {
+    marginTop: 2,
+    fontSize: 10,
+    color: P.mutedDark,
+    fontFamily: "Manrope_700Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  summaryDivider: {
+    width: 1,
+    alignSelf: "stretch",
+    backgroundColor: "rgba(13,27,42,0.08)",
+    marginHorizontal: 12,
+  },
+  summaryContent: {
+    alignItems: "flex-start",
+    zIndex: 3,
+    flex: 1,
+  },
+  summaryTitle: {
+    color: P.ink,
+    fontSize: 16,
+    lineHeight: 20,
+    fontFamily: "Manrope_800ExtraBold",
+    maxWidth: "100%",
+  },
+  summarySubtext: {
+    color: P.mutedDark,
+    fontSize: 11,
+    fontFamily: "Manrope_500Medium",
+    lineHeight: 15,
+    marginTop: 2,
+    marginBottom: 8,
+    maxWidth: "100%",
+  },
+  summaryPillsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
+    flexWrap: "wrap",
+  },
+  summaryPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: "rgba(13,27,42,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(13,27,42,0.08)",
+  },
+  summaryPillText: {
+    color: P.navy,
+    fontSize: 10,
+    fontFamily: "Manrope_600SemiBold",
+  },
+  summaryActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: P.navy,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: "rgba(13,27,42,0.3)",
+  },
+  summaryActionText: {
+    color: P.white,
+    fontSize: 11,
+    fontFamily: "Manrope_700Bold",
+    letterSpacing: 0.2,
+  },
+  cardCircle: {
+    position: "absolute",
+    bottom: -30,
+    right: -30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(232, 168, 56, 0.08)",
+    zIndex: 1,
+  },
+  cardCircleTwo: {
+    position: "absolute",
+    top: -24,
+    right: 60,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    zIndex: 1,
+  },
+  cardCircleThree: {
+    position: "absolute",
+    bottom: -45,
+    left: -30,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(232,168,56,0.06)",
+    zIndex: 1,
+  },
+
   // Nav
   nav: {
     flexDirection: "row",
@@ -488,6 +780,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 10,
+  },
+  firstNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   navBtn: {
     width: 38,
@@ -504,14 +801,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  eyebrow: {
-    fontSize: 10,
-    fontFamily: "Manrope_600SemiBold",
-    letterSpacing: 2,
-    color: P.gold,
-    textTransform: "uppercase",
-    marginBottom: 2,
-  },
+  // eyebrow: {
+  //   fontSize: 10,
+  //   fontFamily: "Manrope_600SemiBold",
+  //   letterSpacing: 2,
+  //   color: P.gold,
+  //   textTransform: "uppercase",
+  //   marginBottom: 2,
+  // },
   navTitle: {
     fontSize: 20,
     fontFamily: "Manrope_700Bold",

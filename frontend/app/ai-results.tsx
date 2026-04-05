@@ -7,14 +7,11 @@ import {
   Image,
   TouchableOpacity,
   Animated,
-  Dimensions,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const { width } = Dimensions.get("window");
 
 const palette = {
   navy: "#0D1B2A",
@@ -158,14 +155,31 @@ export default function AIResults() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={palette.white} />
-        </TouchableOpacity>
-        <View>
-          <Text style={styles.title}>Your AI Matches</Text>
-          <Text style={styles.subtitle}>Curated based on your preferences</Text>
-        </View>
+      <View style={styles.headerWrap}>
+        <LinearGradient
+          colors={["#FFF8EC", "#F7E9CD", "#F4E1BD"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
+        >
+          <View style={styles.heroGlowTop} />
+          <View style={styles.heroGlowBottom} />
+
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="chevron-back" size={22} color={palette.navy} />
+          </TouchableOpacity>
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.title}>Your AI Matches</Text>
+            <Text style={styles.subtitle}>
+              Curated based on your preferences
+            </Text>
+          </View>
+          <View style={styles.headerSpacer} />
+        </LinearGradient>
       </View>
 
       <ScrollView
@@ -193,23 +207,78 @@ export default function AIResults() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.cream },
+  headerWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    backgroundColor: palette.cream,
+  },
   header: {
-    backgroundColor: palette.navy,
+    borderRadius: 24,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    gap: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(13,27,42,0.06)",
+    gap: 10,
+  },
+  heroGlowTop: {
+    position: "absolute",
+    top: -42,
+    right: -28,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(255,255,255,0.55)",
+  },
+  heroGlowBottom: {
+    position: "absolute",
+    bottom: -52,
+    left: -24,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "rgba(232,168,56,0.14)",
   },
   backBtn: {
-    // padding: 8,
-    // backgroundColor: palette.white,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.78)",
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.05)",
+    borderColor: "rgba(255,255,255,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  title: { fontSize: 18, fontWeight: "800", color: palette.white },
-  subtitle: { fontSize: 13, color: palette.muted, marginTop: 2 },
+  headerTextWrap: {
+    flex: 1,
+    alignItems: "center",
+    marginHorizontal: 6,
+  },
+  headerSpacer: {
+    width: 42,
+    height: 42,
+  },
+  eyebrow: {
+    fontSize: 9,
+    color: palette.muted,
+    fontFamily: "Manrope_800ExtraBold",
+    letterSpacing: 1.8,
+    marginBottom: -1,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: "Manrope_800ExtraBold",
+    color: palette.navy,
+  },
+  subtitle: {
+    fontSize: 11,
+    color: palette.muted,
+    marginTop: 1,
+    fontFamily: "Manrope_500Medium",
+  },
   scrollContent: { padding: 20, paddingBottom: 40 },
   sectionTitle: {
     fontSize: 14,

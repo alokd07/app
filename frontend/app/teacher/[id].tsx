@@ -528,7 +528,7 @@ export default function TeacherDetailScreen() {
             end={{ x: 1, y: 0 }}
             style={styles.bookBtn}
           >
-            <Text style={styles.bookBtnText}>Book Session</Text>
+            <Text style={styles.bookBtnText}>Book Demo</Text>
             <View style={styles.bookBtnArrow}>
               <Ionicons name="arrow-forward" size={14} color={P.gold} />
             </View>
@@ -575,7 +575,12 @@ const atoms = StyleSheet.create({
   },
   tagTextPrimary: { color: P.navy, fontFamily: "Manrope_600SemiBold" },
 
-  infoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: 20,
+  },
   infoIconBox: {
     width: 32,
     height: 32,
@@ -938,7 +943,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 8,
-    backgroundColor: P.navy,
+    // backgroundColor: P.navy,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import apiClient from "../src/services/api";
 import { API_CONFIG } from "../src/config/api";
-import { Teacher, TimeSlot } from "../src/types";
 import { formatTime, formatCurrency, formatDate } from "../src/utils/helpers";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
@@ -140,20 +139,7 @@ export default function BookSessionScreen() {
   const [booking, setBooking] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchTeacher();
-  }, []);
-  useEffect(() => {
-    if (selectedDate && teacher?.availability) {
-      const day = teacher.availability.find(
-        (a: any) => a.date === selectedDate,
-      );
-      setAvailableSlots(day?.slots || []);
-      setSelectedSlot(null);
-    }
-  }, [selectedDate]);
-
-  const fetchTeacher = async () => {
+  const fetchTeacher = useCallback(async () => {
     try {
       const res = await apiClient.get(
         API_CONFIG.ENDPOINTS.TEACHER_DETAIL(teacherId),
@@ -164,24 +150,27 @@ export default function BookSessionScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teacherId]);
+
+  useEffect(() => {
+    fetchTeacher();
+  }, [fetchTeacher]);
+  useEffect(() => {
+    if (selectedDate && teacher?.availability) {
+      const day = teacher.availability.find(
+        (a: any) => a.date === selectedDate,
+      );
+      setAvailableSlots(day?.slots || []);
+      setSelectedSlot(null);
+    }
+  }, [selectedDate, teacher?.availability]);
 
   const handleBook = async () => {
     if (!selectedDate || !selectedSlot) {
       Alert.alert("Missing info", "Please select a date and time slot");
       return;
     }
-    router.push({
-      pathname: "/payment",
-      params: {
-        bookingId: 123,
-        amount: "100.00",
-        teacherName: teacher?.name || "Teacher",
-        date: selectedDate,
-        time: `${formatTime(selectedSlot.startTime)} - ${formatTime(selectedSlot.endTime)}`,
-      },
-    });
-    return;
+
     setBooking(true);
     try {
       const res = await apiClient.post(API_CONFIG.ENDPOINTS.BOOKINGS, {

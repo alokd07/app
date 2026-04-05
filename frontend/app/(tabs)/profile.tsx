@@ -185,6 +185,7 @@ export default function ProfileScreen() {
               icon="notifications-outline"
               label="Notifications"
               sublabel="Alerts, sounds, reminders"
+              onPress={() => router.push('/notifications')}
             />
             <View style={styles.hDivider} />
             <SettingsLink
