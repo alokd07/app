@@ -12,21 +12,35 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  BackHandler,
+  ToastAndroid,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { AntDesign, Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker, {
   DateTimePickerAndroid,
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import Animated, { FadeInRight, FadeOutLeft } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  FadeInDown,
+  FadeInRight,
+  FadeOutLeft,
+  SlideInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { appColors } from "../src/theme/colors";
 import apiClient from "../src/services/api";
 import { API_CONFIG } from "../src/config/api";
+import { useAuthStore } from "@/src/store/authStore";
+import { saveUserData } from "@/src/services/auth";
 
 const P = appColors;
 
@@ -66,6 +80,7 @@ const SUBJECTS = [
   "Computer Sci",
 ];
 const DURATIONS = ["1h", "1.5h", "2h", "2.5h"];
+const HERO_GRADIENT = ["#FFF9EB", "#FAF4E6", "#F7F0E2"] as const;
 
 // ─── Shared Atoms ──────────────────────────────────────────────────────────────
 function SmartInput({
@@ -204,7 +219,11 @@ function CardDivider() {
 }
 
 function FormCard({ children }: { children: React.ReactNode }) {
-  return <View style={atom.card}>{children}</View>;
+  return (
+    <Animated.View entering={FadeInDown.duration(280)} style={atom.card}>
+      {children}
+    </Animated.View>
+  );
 }
 
 // ─── Step 1: Personal ──────────────────────────────────────────────────────────
@@ -246,12 +265,12 @@ function Step1({
               <Image source={{ uri: profilePhoto }} style={step1.avatarImg} />
             ) : (
               <View style={step1.avatarFallback}>
-                <Ionicons name="camera" size={26} color={P.gold} />
+                <AntDesign name="user" size={26} color={P.goldLight} />
               </View>
             )}
           </LinearGradient>
           <View style={step1.avatarBadge}>
-            <Ionicons name="pencil" size={11} color={P.navy} />
+            <Ionicons name="camera" size={11} color={P.white} />
           </View>
         </TouchableOpacity>
         <Text style={step1.avatarHint}>Tap to add photo</Text>
@@ -326,21 +345,49 @@ function Step1({
         <View
           style={{
             flexDirection: "row",
+            justifyContent: "space-between",
             alignItems: "center",
-            gap: 5,
-            marginTop: 6,
+            marginTop: 2,
           }}
         >
-          <Ionicons name="shield-checkmark" size={12} color={P.success} />
-          <Text
+          <View
             style={{
-              fontSize: 11,
-              fontFamily: "Manrope_500Medium",
-              color: P.success,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 5,
             }}
           >
-            Verified via OTP
-          </Text>
+            <Ionicons name="shield-checkmark" size={12} color={P.success} />
+            <Text
+              style={{
+                fontSize: 11,
+                fontFamily: "Manrope_500Medium",
+                color: P.success,
+              }}
+            >
+              Verified via OTP
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 5,
+            }}
+            onPress={() => router.replace('/auth/login')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="pencil" size={12} color={P.navy} />
+            <Text
+              style={{
+                fontSize: 11,
+                fontFamily: "Manrope_500Medium",
+                color: P.navy,
+              }}
+            >
+              Edit Number
+            </Text>
+          </TouchableOpacity>
         </View>
       </FormCard>
     </View>
@@ -661,7 +708,7 @@ function Step4({
     <View style={{ gap: 14 }}>
       <FormCard>
         <SmartInput
-          label="BUDGET (₹ PER HOUR)"
+          label="BUDGET (₹ PER MONTH)"
           icon="cash-outline"
           placeholder="e.g. 500"
           keyboardType="numeric"
@@ -848,6 +895,58 @@ export default function StudentProfileSetup() {
   const [schoolName, setSchoolName] = useState("");
   const [schoolAddress, setSchoolAddress] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const progress = useSharedValue(step / 4);
+  const { setUser, setAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    progress.value = withTiming(step / 4, {
+      duration: 360,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [progress, step]);
+
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${Math.max(8, progress.value * 100)}%`,
+  }));
+
+  let lastBackPress = 0;
+
+  useEffect(() => {
+    const backAction = () => {
+      const now = Date.now();
+
+      if (now - lastBackPress < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+
+      lastBackPress = now;
+      ToastAndroid.show("Press back again to exit", ToastAndroid.SHORT);
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction,
+    );
+
+    return () => subscription.remove();
+  }, []);
+
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (step > 1) {
+      setStep((s) => s - 1);
+      return;
+    }
+
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace("/auth/login");
+  };
 
   const onDateSelected = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === "android") {
@@ -974,8 +1073,21 @@ export default function StudentProfileSetup() {
         duration,
       };
 
-      await apiClient.post(API_CONFIG.ENDPOINTS.CREATE_ACCOUNT, payload);
-      router.replace("/(tabs)/home");
+      const data = await apiClient.post(
+        API_CONFIG.ENDPOINTS.CREATE_ACCOUNT,
+        payload,
+      );
+
+      const studentData = data?.data?.data;
+
+      if (data?.data?.status) {
+        await saveUserData(studentData);
+        setUser(studentData);
+        setAuthenticated(true);
+        router.replace("/(tabs)/home");
+      } else {
+        console.warn("Profile creation may have failed", { response: data });
+      }
     } catch (error: any) {
       Alert.alert(
         "Profile setup failed",
@@ -992,35 +1104,60 @@ export default function StudentProfileSetup() {
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <StatusBar backgroundColor="white" translucent barStyle="dark-content" />
+      <LinearGradient
+        colors={HERO_GRADIENT}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={[styles.bgBlob, styles.bgBlobTop]} />
+      <View style={[styles.bgBlob, styles.bgBlobBottom]} />
       {/* ── Nav ── */}
       <View style={styles.headerCard}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity
-            style={[styles.navBtn, step === 1 && styles.navBtnDisabled]}
-            onPress={() => step > 1 && setStep((s) => s - 1)}
-            disabled={step === 1}
+            style={[styles.navBtn, { opacity: step === 1 ? 0.3 : 1 }]}
+            onPress={() => {
+              if (step !== 1) {
+                handleBack();
+                return;
+              }
+            }}
             activeOpacity={0.75}
           >
             <Ionicons name="chevron-back" size={18} color={P.ink} />
           </TouchableOpacity>
 
           <View style={styles.headerCenterMeta}>
-            <Text style={styles.headerEyebrow}>{meta.title}</Text>
-            <Text style={styles.headerStepText}>Step {step} of 4</Text>
+            <Text style={styles.headerEyebrow}>Student Onboarding</Text>
+            <Text style={styles.headerStepText}>
+              Craft your ideal learning profile
+            </Text>
           </View>
 
           <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>
-              {Math.round((step / 4) * 100)}%
-            </Text>
+            <Text style={styles.stepBadgeText}>{step}/4</Text>
           </View>
         </View>
 
-        {/* <View style={styles.progressRow}>
+        {/* <View style={styles.activeStepPill}>
+          <View style={styles.activeStepIconWrap}>
+            <Ionicons name={meta.icon} size={14} color={P.white} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.activeStepTitle}>{meta.title}</Text>
+            <Text style={styles.activeStepSub}>{meta.sub}</Text>
+          </View>
+        </View> */}
+
+        <View style={styles.progressRow}>
+          <Text style={styles.progressPercent}>
+            {Math.round((step / 4) * 100)}%
+          </Text>
           <View style={styles.progressTrack}>
             <Animated.View style={[styles.progressFill, progressStyle]}>
               <LinearGradient
-                colors={[P.gold, P.goldLight]}
+                colors={[P.goldDark, P.goldLight]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={StyleSheet.absoluteFill}
@@ -1028,127 +1165,89 @@ export default function StudentProfileSetup() {
             </Animated.View>
           </View>
           <Text style={styles.progressHint}>
-            {step === 4 ? "Final step" : "Keep going"}
+            {step === 4 ? "Finish" : "In progress"}
           </Text>
-        </View> */}
-
-        <View style={styles.dotsRow}>
-          {STEPS.map((s, i) => {
-            const idx = i + 1;
-            const done = idx < step;
-            const active = idx === step;
-            return (
-              <React.Fragment key={idx}>
-                <View
-                  style={[
-                    styles.dot,
-                    active && styles.dotActive,
-                    done && styles.dotDone,
-                  ]}
-                >
-                  {done ? (
-                    <Ionicons name="checkmark" size={11} color={P.navy} />
-                  ) : (
-                    <Ionicons
-                      name={s.icon}
-                      size={13}
-                      color={active ? P.navy : P.muted}
-                    />
-                  )}
-                </View>
-                {i < 3 && (
-                  <View style={[styles.dotLine, done && styles.dotLineDone]} />
-                )}
-              </React.Fragment>
-            );
-          })}
         </View>
-
-        {/* <View style={styles.banner}>
-          <View style={styles.bannerBackground} />
-          <View style={styles.bannerIconBox}>
-            <Ionicons name={meta.icon} size={14} color={P.gold} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.bannerTitle}>{meta.title}</Text>
-            <Text style={styles.bannerSub}>{meta.sub}</Text>
-          </View>
-        </View> */}
       </View>
 
       {/* ── Scrollable form ── */}
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Animated.View
-          key={step}
-          entering={FadeInRight.duration(320)}
-          exiting={FadeOutLeft.duration(200)}
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {step === 1 && (
-            <Step1
-              dob={dob}
-              showIosPicker={showIosDob}
-              onDobPress={handleDobPress}
-              onDateSelected={onDateSelected}
-              onDismissIos={() => setShowIosDob(false)}
-              profilePhoto={profilePhoto}
-              onPickImage={pickImage}
-              gender={gender}
-              setGender={setGender}
-              firstName={firstName}
-              setFirstName={setFirstName}
-              lastName={lastName}
-              setLastName={setLastName}
-              phoneNumber={normalizedPhone || "+91"}
-            />
-          )}
-          {step === 2 && (
-            <Step2
-              houseNumber={houseNumber}
-              setHouseNumber={setHouseNumber}
-              area={area}
-              setArea={setArea}
-              landmark={landmark}
-              setLandmark={setLandmark}
-              pincode={pincode}
-              setPincode={setPincode}
-              city={city}
-              setCity={setCity}
-              state={state}
-              setState={setState}
-              country={country}
-              setCountry={setCountry}
-            />
-          )}
-          {step === 3 && (
-            <Step3
-              board={board}
-              setBoard={setBoard}
-              cls={cls}
-              setCls={setCls}
-              schoolName={schoolName}
-              setSchoolName={setSchoolName}
-              schoolAddress={schoolAddress}
-              setSchoolAddress={setSchoolAddress}
-            />
-          )}
-          {step === 4 && (
-            <Step4
-              days={days}
-              toggleDay={toggleDay}
-              teacherPref={teacherPref}
-              setTeacherPref={setTeacherPref}
-              subjects={subjects}
-              toggleSubject={toggleSubject}
-              duration={duration}
-              setDuration={setDuration}
-            />
-          )}
-        </Animated.View>
-      </ScrollView>
+          <Animated.View
+            key={step}
+            entering={FadeInRight.duration(320)}
+            exiting={FadeOutLeft.duration(220)}
+          >
+            {step === 1 && (
+              <Step1
+                dob={dob}
+                showIosPicker={showIosDob}
+                onDobPress={handleDobPress}
+                onDateSelected={onDateSelected}
+                onDismissIos={() => setShowIosDob(false)}
+                profilePhoto={profilePhoto}
+                onPickImage={pickImage}
+                gender={gender}
+                setGender={setGender}
+                firstName={firstName}
+                setFirstName={setFirstName}
+                lastName={lastName}
+                setLastName={setLastName}
+                phoneNumber={normalizedPhone || "+91"}
+              />
+            )}
+            {step === 2 && (
+              <Step2
+                houseNumber={houseNumber}
+                setHouseNumber={setHouseNumber}
+                area={area}
+                setArea={setArea}
+                landmark={landmark}
+                setLandmark={setLandmark}
+                pincode={pincode}
+                setPincode={setPincode}
+                city={city}
+                setCity={setCity}
+                state={state}
+                setState={setState}
+                country={country}
+                setCountry={setCountry}
+              />
+            )}
+            {step === 3 && (
+              <Step3
+                board={board}
+                setBoard={setBoard}
+                cls={cls}
+                setCls={setCls}
+                schoolName={schoolName}
+                setSchoolName={setSchoolName}
+                schoolAddress={schoolAddress}
+                setSchoolAddress={setSchoolAddress}
+              />
+            )}
+            {step === 4 && (
+              <Step4
+                days={days}
+                toggleDay={toggleDay}
+                teacherPref={teacherPref}
+                setTeacherPref={setTeacherPref}
+                subjects={subjects}
+                toggleSubject={toggleSubject}
+                duration={duration}
+                setDuration={setDuration}
+              />
+            )}
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* ── Footer CTA ── */}
       <View style={styles.footer}>
@@ -1167,18 +1266,18 @@ export default function StudentProfileSetup() {
             {submitting ? (
               <ActivityIndicator size="small" color={P.navy} />
             ) : (
-              <>
+              <View style={styles.ctaInner2}>
                 <Text style={styles.ctaText}>
                   {step === 4 ? "COMPLETE SETUP" : "CONTINUE"}
                 </Text>
                 <View style={styles.ctaArrow}>
                   <Ionicons
-                    name={step === 4 ? "checkmark" : "arrow-forward"}
-                    size={14}
+                    name={step === 4 ? "shield-checkmark" : "arrow-forward"}
+                    size={15}
                     color={P.navy}
                   />
                 </View>
-              </>
+              </View>
             )}
           </LinearGradient>
         </TouchableOpacity>
@@ -1190,26 +1289,29 @@ export default function StudentProfileSetup() {
 // ─── Atom styles ───────────────────────────────────────────────────────────────
 const atom = StyleSheet.create({
   // Input
-  inputWrap: { gap: 7 },
+  inputWrap: { gap: 8 },
   inputLabel: {
     fontSize: 10,
     fontFamily: "Manrope_700Bold",
-    color: P.mutedDark,
+    color: P.navyLight,
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
   inputBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: P.inputBg,
-    borderRadius: 13,
+    backgroundColor: "rgba(255,255,255,0.86)",
+    borderRadius: 15,
     paddingHorizontal: 14,
-    height: 52,
-    borderWidth: 1.5,
+    minHeight: 52,
+    borderWidth: 1,
     borderColor: P.border,
     gap: 10,
   },
-  inputBoxFocused: { borderColor: P.gold, backgroundColor: "#FFFDF7" },
+  inputBoxFocused: {
+    borderColor: P.goldBorder,
+    backgroundColor: "#FFFCF4",
+  },
   inputBoxDisabled: { backgroundColor: "#EDEEF2", opacity: 0.7 },
   inputField: {
     flex: 1,
@@ -1224,52 +1326,60 @@ const atom = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: P.white,
-    borderWidth: 1.5,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    borderWidth: 1,
     borderColor: P.border,
   },
-  chipActive: { backgroundColor: P.gold, borderColor: P.gold },
-  chipText: { fontSize: 12, fontFamily: "Manrope_600SemiBold", color: P.muted },
+  chipActive: { backgroundColor: P.goldDim, borderColor: P.goldBorder },
+  chipText: {
+    fontSize: 12,
+    fontFamily: "Manrope_600SemiBold",
+    color: P.mutedDark,
+  },
   chipTextActive: { color: P.navy, fontFamily: "Manrope_700Bold" },
 
   // Pill
   pill: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: P.white,
-    borderWidth: 1.5,
+    borderRadius: 13,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderWidth: 1,
     borderColor: P.border,
     alignItems: "center",
     minWidth: 72,
   },
   pillActive: { backgroundColor: P.navy, borderColor: P.navy },
-  pillText: { fontSize: 12, fontFamily: "Manrope_600SemiBold", color: P.muted },
-  pillTextActive: { color: P.cream, fontFamily: "Manrope_700Bold" },
+  pillText: {
+    fontSize: 12,
+    fontFamily: "Manrope_600SemiBold",
+    color: P.mutedDark,
+  },
+  pillTextActive: { color: P.white, fontFamily: "Manrope_700Bold" },
 
   // Section label
   sectionLabel: {
     fontSize: 10,
     fontFamily: "Manrope_700Bold",
-    color: P.mutedDark,
+    color: P.navyLight,
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
 
   // Card
   card: {
-    backgroundColor: P.white,
-    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.74)",
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: P.borderSoft,
     padding: 16,
     gap: 14,
-    shadowColor: P.navy,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    // shadowColor: P.navy,
+    // shadowOffset: { width: 0, height: 8 },
+    // shadowOpacity: 0.08,
+    // shadowRadius: 16,
+    // elevation: 2,
   },
 });
 
@@ -1277,20 +1387,37 @@ const atom = StyleSheet.create({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: P.cream },
 
+  bgBlob: {
+    position: "absolute",
+    borderRadius: 999,
+    opacity: 0.22,
+  },
+  bgBlobTop: {
+    width: 260,
+    height: 260,
+    backgroundColor: "rgba(232,168,56,0.18)",
+    top: -100,
+    right: -70,
+  },
+  bgBlobBottom: {
+    width: 300,
+    height: 300,
+    backgroundColor: "rgba(13,27,42,0.09)",
+    bottom: -120,
+    left: -120,
+  },
+
   headerCard: {
-    // marginHorizontal: 20,
-    // marginTop: 10,
-    marginBottom: 12,
+    marginBottom: 2,
     padding: 16,
-    // borderRadius: 22,
     backgroundColor: P.white,
-    // borderWidth: 1,
-    // borderColor: "rgba(13,27,42,0.06)",
+    borderBottomWidth: 1,
+    borderBottomColor: P.border,
     shadowColor: P.navy,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
-    shadowRadius: 18,
-    elevation: 2,
+    shadowRadius: 12,
+    elevation: 1,
   },
   headerTopRow: {
     flexDirection: "row",
@@ -1298,9 +1425,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   navBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 13,
     backgroundColor: P.white,
     borderWidth: 1,
     borderColor: P.border,
@@ -1317,51 +1444,95 @@ const styles = StyleSheet.create({
   },
   headerCenterMeta: {
     flex: 1,
-    paddingHorizontal: 12,
-    alignItems: "center",
+    paddingHorizontal: 10,
   },
   headerEyebrow: {
     fontSize: 10,
-    fontFamily: "Manrope_700Bold",
-    color: P.gold,
+    fontFamily: "Manrope_800ExtraBold",
+    color: P.navy,
     letterSpacing: 1.3,
     textTransform: "uppercase",
   },
   headerStepText: {
-    marginTop: 3,
-    fontSize: 13,
+    marginTop: 2,
+    fontSize: 12,
+    fontFamily: "Manrope_600SemiBold",
+    color: P.muted,
+  },
+  activeStepPill: {
+    marginTop: 14,
+    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: P.goldPale,
+    borderWidth: 1,
+    borderColor: P.goldBorder,
+  },
+  activeStepIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: P.navy,
+  },
+  activeStepTitle: {
+    fontSize: 14,
     fontFamily: "Manrope_700Bold",
     color: P.navy,
   },
+  activeStepSub: {
+    marginTop: 1,
+    fontSize: 12,
+    fontFamily: "Manrope_500Medium",
+    color: P.muted,
+  },
   progressTrack: {
     flex: 1,
-    height: 5,
-    backgroundColor: "rgba(13,27,42,0.06)",
+    height: 8,
+    backgroundColor: P.goldPale,
     borderRadius: 999,
     overflow: "hidden",
   },
   progressRow: {
-    marginTop: 14,
-    marginBottom: 12,
+    marginBottom: 2,
+    marginTop: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
   progressFill: { height: "100%", borderRadius: 999 },
+  progressPercent: {
+    width: 40,
+    fontSize: 12,
+    fontFamily: "Manrope_700Bold",
+    color: P.navy,
+  },
   progressHint: {
     fontSize: 11,
     fontFamily: "Manrope_600SemiBold",
-    color: P.muted,
+    color: P.navy,
   },
   stepBadge: {
-    paddingHorizontal: 11,
+    minWidth: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 20,
+    borderRadius: 14,
     backgroundColor: P.goldDim,
     borderWidth: 1,
     borderColor: P.goldBorder,
   },
-  stepBadgeText: { fontSize: 12, fontFamily: "Manrope_700Bold", color: P.gold },
+  stepBadgeText: {
+    fontSize: 12,
+    fontFamily: "Manrope_700Bold",
+    color: P.goldDark,
+  },
   welcomeTitle: {
     fontSize: 28,
     fontFamily: "Manrope_800ExtraBold",
@@ -1376,111 +1547,81 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
 
-  dotsRow: {
+  stepRail: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 12,
+    marginTop: 2,
   },
-  dot: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+  railNode: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
     backgroundColor: P.white,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: P.border,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: P.navy,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
   },
-  dotActive: { backgroundColor: P.gold, borderColor: P.gold },
-  dotDone: { backgroundColor: P.goldDim, borderColor: P.goldBorder },
-  dotLine: {
-    flex: 1,
-    height: 2,
-    backgroundColor: P.border,
-    marginHorizontal: 5,
-  },
-  dotLineDone: { backgroundColor: P.gold },
-
-  banner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 2,
-    backgroundColor: P.cream,
-    borderWidth: 1,
-    borderColor: "rgba(13,27,42,0.04)",
-    overflow: "hidden",
-  },
-  bannerBackground: {
-    position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "rgba(232,168,56,0.06)",
-    top: -60,
-    right: -40,
-  },
-  bannerIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: P.goldDim,
-    borderWidth: 1,
-    borderColor: P.goldBorder,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  bannerTitle: {
-    fontSize: 23,
+  railNodeActive: { backgroundColor: P.navy, borderColor: P.navy },
+  railNodeDone: { backgroundColor: P.gold, borderColor: P.gold },
+  railNodeText: {
+    fontSize: 12,
     fontFamily: "Manrope_700Bold",
     color: P.navy,
-    letterSpacing: -0.3,
   },
-  bannerSub: {
-    fontSize: 14,
-    fontFamily: "Manrope_400Regular",
-    color: P.muted,
-    marginTop: 2,
+  railNodeTextActive: { color: P.white },
+  railLine: {
+    flex: 1,
+    height: 3,
+    backgroundColor: P.border,
+    marginHorizontal: 5,
+    borderRadius: 999,
   },
+  railLineDone: { backgroundColor: P.gold },
 
-  scroll: { paddingHorizontal: 20, paddingBottom: 32 },
+  scroll: { paddingHorizontal: 20, paddingTop: 2, paddingBottom: 26 },
 
   footer: {
-    padding: 20,
-    backgroundColor: P.cream,
-    borderTopWidth: 1,
-    borderTopColor: P.border,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === "ios" ? 22 : 16,
+    backgroundColor: "transparent",
   },
-  cta: { borderRadius: 16, overflow: "hidden" },
+  cta: {
+    borderRadius: 18,
+    overflow: "hidden",
+    shadowColor: P.navy,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 4,
+  },
   ctaInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
+    minHeight: 56,
+    paddingVertical: 15,
+    paddingHorizontal: 14,
     gap: 12,
   },
+  ctaInner2: {
+    flexDirection: "row",
+    // alignItems: "center",
+    gap: 5,
+  },
   ctaText: {
-    fontSize: 14,
-    fontFamily: "Manrope_800ExtraBold",
+    fontSize: 15,
+    fontFamily: "Manrope_700Bold",
     color: P.navy,
-    letterSpacing: 1.2,
+    letterSpacing: 0.2,
   },
   ctaArrow: {
-    // width: 26,
-    // height: 26,
-    // borderRadius: 9,
-    // backgroundColor: P.navy,
+    width: 26,
+    height: 26,
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 0.5,
   },
 });

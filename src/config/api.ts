@@ -1,7 +1,7 @@
 // Centralized API configuration
 export const API_CONFIG = {
   // BASE_URL: "https://api.bookmysession.in",
-  BASE_URL: "http://10.221.11.48:8001",
+  BASE_URL: "http://192.168.31.9:8001",
   ENDPOINTS: {
     // Auth
     SEND_OTP: "/auth/whatsapp/send-otp",

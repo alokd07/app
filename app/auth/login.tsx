@@ -11,9 +11,9 @@ import {
   ActivityIndicator,
   ScrollView,
   Animated,
-  Dimensions,
   StatusBar,
   Image,
+  Easing,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,111 +23,8 @@ import apiClient from "../../src/services/api";
 import { API_CONFIG } from "../../src/config/api";
 import { appColors } from "../../src/theme/colors";
 
-const { width } = Dimensions.get("window");
-
 const palette = appColors;
 
-// ─── Floating Orb ─────────────────────────────────────────────────────────────
-function FloatingOrb({
-  size,
-  top,
-  left,
-  delay,
-}: {
-  size: number;
-  top: number;
-  left: number;
-  delay: number;
-}) {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: 3200 + delay,
-          useNativeDriver: true,
-        }),
-        Animated.timing(anim, {
-          toValue: 0,
-          duration: 3200 + delay,
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
-  }, []);
-  const translateY = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -14],
-  });
-  return (
-    <Animated.View
-      style={[
-        styles.orb,
-        { width: size, height: size, top, left },
-        { transform: [{ translateY }] },
-      ]}
-    />
-  );
-}
-
-// ─── Trust Badge ──────────────────────────────────────────────────────────────
-function TrustBadge({ icon, label }: { icon: string; label: string }) {
-  return (
-    <View style={styles.trustBadge}>
-      <Ionicons name={icon as any} size={13} color={palette.gold} />
-      <Text style={styles.trustBadgeText}>{label}</Text>
-    </View>
-  );
-}
-
-// ─── Step Indicator ───────────────────────────────────────────────────────────
-function StepIndicator({ current }: { current: number }) {
-  const steps = ["Phone", "Verify", "Done"];
-  return (
-    <View style={styles.stepWrap}>
-      {steps.map((label, i) => {
-        const done = i < current;
-        const active = i === current;
-        return (
-          <React.Fragment key={i}>
-            <View style={styles.stepItem}>
-              <View
-                style={[
-                  styles.stepCircle,
-                  done && styles.stepCircleDone,
-                  active && styles.stepCircleActive,
-                ]}
-              >
-                {done ? (
-                  <Ionicons name="checkmark" size={11} color={palette.navy} />
-                ) : (
-                  <Text
-                    style={[styles.stepNum, active && styles.stepNumActive]}
-                  >
-                    {i + 1}
-                  </Text>
-                )}
-              </View>
-              <Text
-                style={[styles.stepLabel, active && styles.stepLabelActive]}
-              >
-                {label}
-              </Text>
-            </View>
-            {i < steps.length - 1 && (
-              <View
-                style={[styles.stepConnector, done && styles.stepConnectorDone]}
-              />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </View>
-  );
-}
-
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function LoginScreen() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -138,6 +35,8 @@ export default function LoginScreen() {
   const cardAnim = useRef(new Animated.Value(0)).current;
   const btnScale = useRef(new Animated.Value(1)).current;
   const checkScale = useRef(new Animated.Value(0)).current;
+  const heroScaleAnim = useRef(new Animated.Value(0)).current;
+  const contentFadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     StatusBar.setBarStyle("light-content");
@@ -145,12 +44,26 @@ export default function LoginScreen() {
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 550,
+          duration: 520,
           useNativeDriver: true,
         }),
         Animated.timing(slideAnim, {
           toValue: 0,
-          duration: 550,
+          duration: 520,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(heroScaleAnim, {
+          toValue: 1,
+          duration: 380,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentFadeAnim, {
+          toValue: 1,
+          duration: 400,
           useNativeDriver: true,
         }),
       ]),
@@ -161,37 +74,31 @@ export default function LoginScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim, heroScaleAnim, contentFadeAnim, cardAnim]);
 
-  // Animate checkmark when 10 digits entered
-  useEffect(() => {
-    Animated.spring(checkScale, {
-      toValue: phone.length === 10 ? 1 : 0,
-      tension: 60,
-      friction: 6,
+  const handlePressIn = () => {
+    Animated.spring(btnScale, {
+      toValue: 0.94,
       useNativeDriver: true,
     }).start();
-  }, [phone.length === 10]);
+  };
 
-  const handlePressIn = () =>
-    Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start();
-  const handlePressOut = () =>
+  const handlePressOut = () => {
     Animated.spring(btnScale, {
       toValue: 1,
-      friction: 4,
+      tension: 60,
+      friction: 7,
       useNativeDriver: true,
     }).start();
+  };
 
   const handleSendOTP = async () => {
     if (!phone || phone.length !== 10) {
-      Alert.alert(
-        "Invalid Input",
-        "Please enter a valid 10-digit phone number",
-      );
+      Alert.alert("Invalid", "Please enter a valid 10-digit number");
       return;
     }
-    setLoading(true);
 
+    setLoading(true);
     try {
       const response = await apiClient.post(API_CONFIG.ENDPOINTS.SEND_OTP, {
         phoneNumber: `+91${phone}`,
@@ -203,7 +110,9 @@ export default function LoginScreen() {
           pathname: "/auth/verify-otp",
           params: { phone: `+91${phone}` },
         });
-      } else throw new Error("Failed to send OTP");
+      } else {
+        throw new Error("Failed to send OTP");
+      }
     } catch (error: any) {
       Alert.alert(
         "Error",
@@ -218,7 +127,25 @@ export default function LoginScreen() {
     inputRange: [0, 1],
     outputRange: [24, 0],
   });
+
   const isValid = phone.length === 10;
+
+  useEffect(() => {
+    if (isValid) {
+      Animated.timing(checkScale, {
+        toValue: 1,
+        duration: 280,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(checkScale, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isValid, checkScale]);
 
   return (
     <KeyboardAvoidingView
@@ -231,102 +158,87 @@ export default function LoginScreen() {
         backgroundColor="transparent"
       />
 
-      {/* ── Hero ── */}
       <LinearGradient
-        colors={[palette.navy, palette.navyMid, palette.navyLight]}
+        colors={["#0D1B2A", "#142B3C"]}
         style={styles.hero}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        {/* Orbs */}
-        <FloatingOrb size={130} top={-35} left={width * 0.58} delay={0} />
-        <FloatingOrb size={80} top={70} left={-24} delay={600} />
-        <FloatingOrb size={48} top={30} left={width * 0.32} delay={1100} />
-
         <SafeAreaView edges={["top"]}>
-          {/* Top-right trust chip */}
           <View style={styles.heroTopRow}>
-            <View style={styles.secureChip}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={12}
-                color={palette.gold}
-              />
-              <Text style={styles.secureChipText}>Verified & Secure</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.heroBackBtn}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={22} color={palette.white} />
+            </TouchableOpacity>
+            <Text style={styles.heroMeta}>LOGIN</Text>
           </View>
         </SafeAreaView>
 
-        {/* Centered logo + text */}
         <Animated.View
           style={[
-            styles.heroContent,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            styles.heroEditorial,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
           ]}
         >
-          {/* Logo mark */}
-          <View style={styles.logoWrap}>
-            <LinearGradient
-              colors={["rgba(232,168,56,0.22)", "rgba(232,168,56,0.08)"]}
-              style={styles.logoMark}
-            >
+          <View style={styles.heroBrandRow}>
+            <View style={styles.logoBadgeSmall}>
               <Image
                 source={require("../../assets/images/Logo.png")}
-                style={styles.logoIcon}
+                style={styles.logoImageSmall}
               />
-            </LinearGradient>
-            {/* Orbit dot */}
-            <View style={styles.orbitDot}>
-              <Ionicons name="sparkles" size={10} color={palette.gold} />
             </View>
+            <Text style={styles.heroBrand}>BOOK MY SESSION</Text>
           </View>
 
-          <Text style={styles.heroTitle}>BookMySession</Text>
-          <Text style={styles.heroTagline}>
-            Connect with expert teachers,{"\n"}learn without limits.
+          <Animated.View
+            style={{
+              opacity: contentFadeAnim,
+              transform: [{ scale: heroScaleAnim }],
+            }}
+          >
+            <Text style={styles.heroLineOne}>Your Learning</Text>
+            <Text style={styles.heroLineTwo}>Starts Here.</Text>
+          </Animated.View>
+
+          <Text style={styles.heroSub}>
+            Access verified mentors and start high-impact sessions in minutes.
           </Text>
-
-          {/* Feature pills */}
-          <View style={styles.featurePills}>
-            {["500+ Tutors", "All Subjects", "Book Instantly"].map((f) => (
-              <View key={f} style={styles.featurePill}>
-                <Text style={styles.featurePillText}>{f}</Text>
-              </View>
-            ))}
-          </View>
         </Animated.View>
-
-        {/* Curve */}
-        <View style={styles.heroCurve} />
       </LinearGradient>
 
-      {/* ── Scrollable card area ── */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* <View style={styles.design} /> */}
         <Animated.View
           style={[
             styles.card,
             { opacity: cardAnim, transform: [{ translateY: cardTranslate }] },
           ]}
         >
-          {/* Step indicator */}
-          <StepIndicator current={0} />
+          <View style={styles.stepIndicatorSimplified}>
+            <View style={styles.stepDot} />
+            <Text style={styles.stepLabelSimple}>Step 1 of 3</Text>
+          </View>
 
-          {/* Header */}
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Sign in</Text>
+            <Text style={styles.cardTitle}>Welcome Back</Text>
             <Text style={styles.cardSubtitle}>
-              We&lsquo;ll send a one-time code to your WhatsApp
+              Enter your mobile number to continue
             </Text>
           </View>
 
           <View style={styles.divider} />
 
-          {/* Phone input */}
           <View style={styles.fieldWrapper}>
             <Text style={styles.fieldLabel}>Mobile Number</Text>
 
@@ -337,11 +249,9 @@ export default function LoginScreen() {
                 isValid && styles.inputRowValid,
               ]}
             >
-              {/* Country selector */}
               <TouchableOpacity style={styles.countryBadge} activeOpacity={0.7}>
                 <Text style={styles.countryFlag}>🇮🇳</Text>
                 <Text style={styles.countryCode}>+91</Text>
-                {/* <Ionicons name="chevron-down" size={11} color={palette.muted} /> */}
               </TouchableOpacity>
 
               <View style={styles.inputDivider} />
@@ -359,7 +269,6 @@ export default function LoginScreen() {
                 onBlur={() => setFocused(false)}
               />
 
-              {/* Animated checkmark */}
               <Animated.View
                 style={[
                   styles.validBadge,
@@ -374,7 +283,6 @@ export default function LoginScreen() {
               </Animated.View>
             </View>
 
-            {/* Char count + helper row */}
             <View style={styles.inputFooter}>
               <View style={styles.helperRow}>
                 <Text style={styles.helperText}>
@@ -389,7 +297,6 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* CTA */}
           <Animated.View style={{ transform: [{ scale: btnScale }] }}>
             <TouchableOpacity
               style={[
@@ -421,44 +328,21 @@ export default function LoginScreen() {
                     >
                       Send OTP
                     </Text>
-                    {/* <View
-                      style={[
-                        styles.ctaArrow,
-                        isValid && styles.ctaArrowActive,
-                      ]}
-                    > */}
                     <Ionicons
                       name="arrow-forward"
                       size={15}
                       color={isValid ? palette.navy : "#90A4AE"}
                     />
-                    {/* </View> */}
                   </View>
                 )}
               </LinearGradient>
             </TouchableOpacity>
 
             {isValid && (
-              <Text style={styles.ctaHint}>⚡ Takes less than 10 seconds</Text>
+              <Text style={styles.ctaHint}>Takes less than 10 seconds</Text>
             )}
           </Animated.View>
 
-          {/* OR */}
-          {/* <View style={styles.orRow}>
-            <View style={styles.orLine} />
-            <Text style={styles.orText}>or</Text>
-            <View style={styles.orLine} />
-          </View> */}
-
-          {/* Google */}
-          {/* <TouchableOpacity style={styles.googleButton} activeOpacity={0.85}>
-            <View style={styles.googleIcon}>
-              <Text style={styles.googleGlyph}>G</Text>
-            </View>
-            <Text style={styles.googleText}>Continue with Google</Text>
-          </TouchableOpacity> */}
-
-          {/* Trust badges */}
           <View style={styles.trustRow}>
             <TrustBadge icon="lock-closed-outline" label="Encrypted" />
             <TrustBadge icon="shield-checkmark-outline" label="Verified" />
@@ -466,7 +350,6 @@ export default function LoginScreen() {
           </View>
         </Animated.View>
 
-        {/* Terms */}
         <Animated.View style={[styles.termsRow, { opacity: cardAnim }]}>
           <Text style={styles.termsText}>
             By continuing you agree to our{" "}
@@ -480,136 +363,130 @@ export default function LoginScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+function TrustBadge({ icon, label }: { icon: string; label: string }) {
+  return (
+    <View style={styles.trustBadge}>
+      <Ionicons name={icon as any} size={13} color={palette.gold} />
+      <Text style={styles.trustBadgeText}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: palette.cream,
   },
 
-  // ── Hero ──
   hero: {
     overflow: "hidden",
-  },
-  orb: {
-    position: "absolute",
-    borderRadius: 999,
-    backgroundColor: "rgba(232,168,56,0.11)",
+    paddingBottom: 24,
   },
   heroTopRow: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 10,
+    alignItems: "center",
   },
-  secureChip: {
+  heroBackBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(232,168,56,0.14)",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    justifyContent: "center",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderWidth: 1,
-    borderColor: "rgba(232,168,56,0.25)",
+    borderColor: "rgba(255,255,255,0.15)",
   },
-  secureChipText: {
-    fontSize: 10,
-    fontFamily: "Manrope_600SemiBold",
-    color: palette.goldLight,
-    letterSpacing: 0.3,
+  heroMeta: {
+    fontSize: 11,
+    fontFamily: "Manrope_700Bold",
+    color: "rgba(255,255,255,0.72)",
+    letterSpacing: 1.4,
   },
-  heroContent: {
-    alignItems: "center",
-    paddingTop: 14,
+  heroEditorial: {
+    marginTop: 22,
+    paddingHorizontal: 24,
     paddingBottom: 10,
-    paddingHorizontal: 20,
-    gap: 8,
+    gap: 12,
   },
-  logoWrap: {
-    position: "relative",
+  heroBrandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  logoBadgeSmall: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "rgba(232,168,56,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(232,168,56,0.42)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoImageSmall: {
+    width: 18,
+    height: 18,
+    resizeMode: "contain",
+  },
+  heroBrand: {
+    fontSize: 12,
+    fontFamily: "Manrope_700Bold",
+    color: "rgba(255,255,255,0.84)",
+    letterSpacing: 1.2,
+  },
+  heroLineOne: {
+    fontSize: 36,
+    fontFamily: "Manrope_600SemiBold",
+    color: palette.white,
+    letterSpacing: -1.1,
+    lineHeight: 40,
+  },
+  heroLineTwo: {
+    fontSize: 36,
+    fontFamily: "Manrope_800ExtraBold",
+    color: palette.gold,
+    letterSpacing: -1.1,
+    lineHeight: 40,
+    marginTop: -4,
     marginBottom: 4,
   },
-  logoMark: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(232,168,56,0.38)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  logoIcon: {
-    height: 28,
-    width: 28,
-    resizeMode: "contain",
-    color: palette.gold,
-  },
-  orbitDot: {
-    position: "absolute",
-    // width: 8,
-    // height: 8,
-    borderRadius: 4,
-    // backgroundColor: palette.gold,
-    bottom: 2,
-    right: 0,
-    // borderWidth: 2,
-    // borderColor: palette.navyMid,
-  },
-  heroTitle: {
-    fontSize: 28,
-    fontFamily: "Manrope_700Bold",
-    color: palette.white,
-    letterSpacing: -0.7,
-  },
-  heroTagline: {
+  heroSub: {
     fontSize: 13,
     fontFamily: "Manrope_400Regular",
-    color: "rgba(255,255,255,0.58)",
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  featurePills: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 4,
-    marginBottom: 2,
-  },
-  featurePill: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-  },
-  featurePillText: {
-    fontSize: 10,
-    fontFamily: "Manrope_500Medium",
-    color: "rgba(255,255,255,0.60)",
-    letterSpacing: 0.3,
-  },
-  heroCurve: {
-    height: 28,
-    backgroundColor: palette.cream,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    marginTop: 10,
+    color: "rgba(255,255,255,0.78)",
+    lineHeight: 19,
+    maxWidth: 300,
   },
 
-  // ── Scroll ──
-  scrollView: { flex: 1 },
+  scrollView: { flex: 1, position: "relative" },
   scrollContent: {
+    position: "relative",
+    marginTop: 16,
     paddingHorizontal: 16,
     paddingTop: 4,
     paddingBottom: 40,
   },
+  design: { 
+    position: "absolute",
+    top: -28,
+    left: -48,
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    backgroundColor: "rgba(232,168,56,0.08)",
+     borderWidth: 1,
+    borderColor: "rgba(232,168,56,0.24)",
+     zIndex: 0,
+  },
 
-  // ── Card ──
   card: {
     backgroundColor: palette.white,
     borderRadius: 24,
-    padding: 22,
+    padding: 24,
     shadowColor: palette.navy,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
@@ -617,67 +494,28 @@ const styles = StyleSheet.create({
     elevation: 6,
     marginBottom: 14,
   },
-
-  // ── Step indicator ──
-  stepWrap: {
+  stepIndicatorSimplified: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 8,
     marginBottom: 18,
   },
-  stepItem: {
-    alignItems: "center",
-    gap: 4,
-  },
-  stepCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 2,
-    borderColor: palette.border,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  stepCircleDone: {
-    backgroundColor: palette.gold,
-    borderColor: palette.gold,
-  },
-  stepCircleActive: {
-    borderColor: palette.navy,
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
     backgroundColor: palette.navy,
   },
-  stepNum: {
+  stepLabelSimple: {
     fontSize: 11,
-    fontFamily: "Manrope_700Bold",
+    fontFamily: "Manrope_600SemiBold",
     color: palette.muted,
-  },
-  stepNumActive: {
-    color: palette.gold,
-  },
-  stepLabel: {
-    fontSize: 10,
-    fontFamily: "Manrope_500Medium",
-    color: palette.muted,
-  },
-  stepLabelActive: {
-    color: palette.ink,
-    fontFamily: "Manrope_700Bold",
-  },
-  stepConnector: {
-    width: 36,
-    height: 2,
-    backgroundColor: palette.border,
-    marginHorizontal: 4,
-    marginBottom: 14,
-  },
-  stepConnectorDone: {
-    backgroundColor: palette.gold,
+    letterSpacing: 0.4,
   },
 
-  // Card header
   cardHeader: { marginBottom: 16 },
   cardTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: "Manrope_700Bold",
     color: palette.ink,
     marginBottom: 3,
@@ -695,7 +533,6 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
 
-  // ── Input ──
   fieldWrapper: { marginBottom: 20 },
   fieldLabel: {
     fontSize: 11,
@@ -708,9 +545,9 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: palette.inputBg,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 16,
+    borderWidth: 1,
     borderColor: palette.border,
     height: 56,
     overflow: "hidden",
@@ -725,7 +562,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   inputRowValid: {
-    borderColor: palette.gold,
+    borderColor: palette.goldDark,
   },
   countryBadge: {
     flexDirection: "row",
@@ -782,20 +619,19 @@ const styles = StyleSheet.create({
     color: palette.gold,
   },
 
-  // ── CTA ──
   ctaButton: {
     borderRadius: 14,
     overflow: "hidden",
     marginBottom: 6,
     shadowColor: palette.gold,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.32,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
     elevation: 5,
   },
   ctaButtonOff: {
-    shadowOpacity: 0,
-    elevation: 0,
+    shadowOpacity: 0.15,
+    elevation: 2,
   },
   ctaGradient: {
     paddingVertical: 17,
@@ -814,17 +650,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   ctaTextOff: { color: "#90A4AE" },
-  ctaArrow: {
-    width: 26,
-    height: 26,
-    borderRadius: 7,
-    backgroundColor: "rgba(0,0,0,0.06)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  ctaArrowActive: {
-    backgroundColor: "rgba(13,27,42,0.12)",
-  },
   ctaHint: {
     fontSize: 11,
     fontFamily: "Manrope_400Regular",
@@ -834,60 +659,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // ── OR ──
-  orRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 14,
-    marginTop: 4,
-  },
-  orLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: palette.border,
-  },
-  orText: {
-    fontSize: 11,
-    fontFamily: "Manrope_600SemiBold",
-    color: palette.muted,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-
-  // ── Google ──
-  googleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    backgroundColor: palette.white,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: palette.border,
-    paddingVertical: 14,
-    marginBottom: 18,
-  },
-  googleIcon: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
-    backgroundColor: "#F0F4FF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  googleGlyph: {
-    fontSize: 15,
-    fontFamily: "Manrope_700Bold",
-    color: "#4285F4",
-  },
-  googleText: {
-    fontSize: 14,
-    fontFamily: "Manrope_600SemiBold",
-    color: palette.ink,
-  },
-
-  // ── Trust badges ──
   trustRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -911,7 +682,6 @@ const styles = StyleSheet.create({
     color: palette.ink,
   },
 
-  // ── Terms ──
   termsRow: {
     paddingHorizontal: 8,
     alignItems: "center",

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  Image,
+  ScrollView,
+  Easing,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,7 +28,6 @@ import { useAuthStore } from "../../src/store/authStore";
 import { appColors } from "../../src/theme/colors";
 
 const { width } = Dimensions.get("window");
-
 const palette = appColors;
 
 const OTP_LENGTH = 6;
@@ -34,9 +36,9 @@ const BOX_SIZE = Math.floor(
   (width - 32 - 44 - BOX_GAP * (OTP_LENGTH - 1)) / OTP_LENGTH,
 );
 
-// ─── Blinking cursor ──────────────────────────────────────────────────────────
 function BlinkCursor() {
   const opacity = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -52,11 +54,11 @@ function BlinkCursor() {
         }),
       ]),
     ).start();
-  }, []);
+  }, [opacity]);
+
   return <Animated.View style={[styles.cursor, { opacity }]} />;
 }
 
-// ─── OTP Box ──────────────────────────────────────────────────────────────────
 function OtpBox({
   char,
   focused,
@@ -69,11 +71,12 @@ function OtpBox({
   shakeAnim: Animated.Value;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     if (char) {
       Animated.sequence([
         Animated.spring(scale, {
-          toValue: 1.13,
+          toValue: 1.08,
           speed: 50,
           useNativeDriver: true,
         }),
@@ -84,7 +87,7 @@ function OtpBox({
         }),
       ]).start();
     }
-  }, [char]);
+  }, [char, scale]);
 
   return (
     <Animated.View
@@ -104,90 +107,6 @@ function OtpBox({
   );
 }
 
-// ─── Step Indicator ───────────────────────────────────────────────────────────
-function StepIndicator({ current }: { current: number }) {
-  const steps = ["Phone", "Verify", "Done"];
-  return (
-    <View style={styles.stepWrap}>
-      {steps.map((label, i) => {
-        const done = i < current;
-        const active = i === current;
-        return (
-          <React.Fragment key={i}>
-            <View style={styles.stepItem}>
-              <View
-                style={[
-                  styles.stepCircle,
-                  done && styles.stepCircleDone,
-                  active && styles.stepCircleActive,
-                ]}
-              >
-                {done ? (
-                  <Ionicons name="checkmark" size={11} color={palette.navy} />
-                ) : (
-                  <Text
-                    style={[styles.stepNum, active && styles.stepNumActive]}
-                  >
-                    {i + 1}
-                  </Text>
-                )}
-              </View>
-              <Text
-                style={[styles.stepLabel, active && styles.stepLabelActive]}
-              >
-                {label}
-              </Text>
-            </View>
-            {i < steps.length - 1 && (
-              <View
-                style={[styles.stepConnector, done && styles.stepConnectorDone]}
-              />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </View>
-  );
-}
-
-// ─── Circular Shield ──────────────────────────────────────────────────────────
-function ShieldProgress({ count, total }: { count: number; total: number }) {
-  return (
-    <View style={styles.shieldOuter}>
-      {/* Dot ring */}
-      {Array.from({ length: total }).map((_, i) => {
-        const angle = ((360 / total) * i - 90) * (Math.PI / 180);
-        const r = 46;
-        const cx = 52 + r * Math.cos(angle);
-        const cy = 52 + r * Math.sin(angle);
-        return (
-          <View
-            key={i}
-            style={[
-              styles.ringDot,
-              {
-                left: cx - 5,
-                top: cy - 5,
-                backgroundColor:
-                  i < count ? palette.gold : "rgba(255,255,255,0.18)",
-              },
-            ]}
-          />
-        );
-      })}
-      {/* Center */}
-      <View style={styles.shieldCenter}>
-        <Ionicons
-          name={count === total ? "shield-checkmark" : "shield-outline"}
-          size={36}
-          color={count === total ? palette.gold : "rgba(255,255,255,0.80)"}
-        />
-      </View>
-    </View>
-  );
-}
-
-// ─── Countdown ────────────────────────────────────────────────────────────────
 function Countdown({
   onResend,
   resending,
@@ -205,15 +124,15 @@ function Countdown({
       duration: 30000,
       useNativeDriver: false,
     }).start();
-  }, []);
+  }, [fillAnim]);
 
   useEffect(() => {
     if (secs <= 0) {
       setDone(true);
       return;
     }
-    const t = setTimeout(() => setSecs((s) => s - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSecs((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
   }, [secs]);
 
   const handleResend = () => {
@@ -268,7 +187,6 @@ function Countdown({
   );
 }
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
 export default function VerifyOTPScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [otp, setOtp] = useState("");
@@ -284,11 +202,10 @@ export default function VerifyOTPScreen() {
   const keyboardVisibleRef = useRef(false);
   const autoVerifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const focusOtpInput = () => {
+  const focusOtpInput = useCallback(() => {
     const input = inputRef.current;
     if (!input || loading) return;
 
-    // If keyboard is hidden while input is still focused, force a refocus cycle.
     if (!keyboardVisibleRef.current) {
       input.blur();
       requestAnimationFrame(() => {
@@ -297,9 +214,8 @@ export default function VerifyOTPScreen() {
       return;
     }
 
-    // Normal focus path while keyboard is already visible.
     requestAnimationFrame(() => input.focus());
-  };
+  }, [loading]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener("keyboardDidShow", () => {
@@ -327,6 +243,7 @@ export default function VerifyOTPScreen() {
         Animated.timing(heroSlide, {
           toValue: 0,
           duration: 480,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
       ]),
@@ -337,7 +254,7 @@ export default function VerifyOTPScreen() {
         useNativeDriver: true,
       }),
     ]).start(() => focusOtpInput());
-  }, []);
+  }, [cardSlide, fadeAnim, focusOtpInput, heroSlide]);
 
   useEffect(() => {
     return () => {
@@ -381,37 +298,23 @@ export default function VerifyOTPScreen() {
     const normalizedOtp = (otpValue ?? otp)
       .replace(/\D/g, "")
       .slice(0, OTP_LENGTH);
-    console.log(
-      "Verifying OTP:",
-      normalizedOtp,
-      "length:",
-      normalizedOtp.length,
-      OTP_LENGTH,
-    );
+
     if (normalizedOtp.length !== OTP_LENGTH) {
-      console.log("OTP incomplete, cannot verify");
       shake();
       Alert.alert("Invalid OTP", "Please enter a valid 6-digit OTP");
       return;
     }
-    router.replace({
-      pathname: "/student-profile-setup",
-      params: { phone },
-    });
 
-    return;
     setLoading(true);
-
     try {
       const res = await apiClient.post(API_CONFIG.ENDPOINTS.VERIFY_OTP, {
         phoneNumber: phone,
         otp: normalizedOtp,
         type: "student",
       });
-      console.log("OTP verification response:", res.data.data);
+
       if (res.data.data) {
         if (res.data.data.exist === false) {
-          // New user flow - navigate to profile setup with token and phone
           const { token } = res.data.data;
           await saveToken(token);
           router.replace({
@@ -420,19 +323,18 @@ export default function VerifyOTPScreen() {
           });
           return;
         }
+
         const { token, user } = res.data.data;
         await saveToken(token);
         await saveUserData(user);
         setUser(user);
         setAuthenticated(true);
         router.replace("/(tabs)/home");
-      } else throw new Error("Invalid response");
+      } else {
+        throw new Error("Invalid response");
+      }
     } catch (err: any) {
       shake();
-      console.log(
-        "OTP verification error:",
-        err.response?.data || err.message || err,
-      );
       Alert.alert(
         "Verification Failed",
         err.response?.data?.message || "Invalid OTP.",
@@ -470,38 +372,44 @@ export default function VerifyOTPScreen() {
         backgroundColor="transparent"
       />
 
-      {/* ── Hero ── */}
       <LinearGradient
-        colors={[palette.navy, palette.navyMid, palette.navyLight]}
+        colors={["#0D1B2A", "#142B3C"]}
         style={styles.hero}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <View style={styles.accentLine} />
-
         <SafeAreaView edges={["top"]}>
-          {/* Back */}
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.back()}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="arrow-back" size={16} color={palette.white} />
-            <Text style={styles.backLabel}>Back</Text>
-          </TouchableOpacity>
+          <View style={styles.heroTopRow}>
+            <TouchableOpacity
+              style={styles.heroBackBtn}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={22} color={palette.white} />
+            </TouchableOpacity>
+            <Text style={styles.heroMeta}>VERIFY</Text>
+          </View>
         </SafeAreaView>
 
         <Animated.View
           style={[
-            styles.heroContent,
+            styles.heroEditorial,
             { opacity: fadeAnim, transform: [{ translateY: heroSlide }] },
           ]}
         >
-          <ShieldProgress count={otp.length} total={OTP_LENGTH} />
+          <View style={styles.heroBrandRow}>
+            <View style={styles.logoBadgeSmall}>
+              <Image
+                source={require("../../assets/images/Logo.png")}
+                style={styles.logoImageSmall}
+              />
+            </View>
+            <Text style={styles.heroBrand}>BOOK MY SESSION</Text>
+          </View>
+
           <Text style={styles.heroTitle}>Verify your number</Text>
           <Text style={styles.heroSub}>Code sent to your WhatsApp</Text>
 
-          {/* Phone pill with edit */}
           <View style={styles.phonePill}>
             <Ionicons name="logo-whatsapp" size={13} color={palette.gold} />
             <Text style={styles.phonePillText}>{phone}</Text>
@@ -517,183 +425,217 @@ export default function VerifyOTPScreen() {
             </TouchableOpacity>
           </View>
         </Animated.View>
-
-        <View style={styles.heroCurve} />
       </LinearGradient>
 
-      {/* ── Card ── */}
-      <Animated.View
-        style={[
-          styles.card,
-          { opacity: fadeAnim, transform: [{ translateY: cardSlide }] },
-        ]}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Step tracker */}
-        <StepIndicator current={1} />
+        <Animated.View
+          style={[
+            styles.card,
+            { opacity: fadeAnim, transform: [{ translateY: cardSlide }] },
+          ]}
+        >
+          <View style={styles.stepIndicatorSimplified}>
+            <View style={styles.stepDot} />
+            <Text style={styles.stepLabelSimple}>Step 2 of 3</Text>
+          </View>
 
-        <Text style={styles.cardTitle}>Enter your code</Text>
-        <Text style={styles.cardSub}>
-          Tap below or type to fill in the digits
-        </Text>
+          <Text style={styles.cardTitle}>Enter your code</Text>
+          <Text style={styles.cardSub}>
+            Tap below or type to fill in the digits
+          </Text>
 
-        {/* Hidden input */}
-        <TextInput
-          ref={inputRef}
-          style={styles.hiddenInput}
-          keyboardType="number-pad"
-          maxLength={OTP_LENGTH}
-          value={otp}
-          autoFocus
-          showSoftInputOnFocus
-          onChangeText={(v) => {
-            const cleaned = v.replace(/\D/g, "").slice(0, OTP_LENGTH);
-            setOtp(cleaned);
-            if (autoVerifyTimerRef.current) {
-              clearTimeout(autoVerifyTimerRef.current);
-            }
-            if (cleaned.length === OTP_LENGTH) {
-              autoVerifyTimerRef.current = setTimeout(
-                () => handleVerifyOTP(cleaned),
-                320,
-              );
-            }
-          }}
-          editable={!loading}
-        />
+          <TextInput
+            ref={inputRef}
+            style={styles.hiddenInput}
+            keyboardType="number-pad"
+            maxLength={OTP_LENGTH}
+            value={otp}
+            autoFocus
+            showSoftInputOnFocus
+            onChangeText={(value) => {
+              const cleaned = value.replace(/\D/g, "").slice(0, OTP_LENGTH);
+              setOtp(cleaned);
+              if (autoVerifyTimerRef.current) {
+                clearTimeout(autoVerifyTimerRef.current);
+              }
+              if (cleaned.length === OTP_LENGTH) {
+                autoVerifyTimerRef.current = setTimeout(
+                  () => handleVerifyOTP(cleaned),
+                  320,
+                );
+              }
+            }}
+            editable={!loading}
+          />
 
-        {/* OTP boxes */}
-        <TouchableOpacity activeOpacity={1} onPressIn={focusOtpInput}>
-          <View style={styles.otpRow}>
-            {Array.from({ length: OTP_LENGTH }).map((_, i) => (
-              <OtpBox
-                key={i}
-                char={otp[i] || ""}
-                focused={otp.length === i}
-                filled={i < otp.length}
-                shakeAnim={shakeAnim}
+          <TouchableOpacity activeOpacity={1} onPressIn={focusOtpInput}>
+            <View style={styles.otpRow}>
+              {Array.from({ length: OTP_LENGTH }).map((_, index) => (
+                <OtpBox
+                  key={index}
+                  char={otp[index] || ""}
+                  focused={otp.length === index}
+                  filled={index < otp.length}
+                  shakeAnim={shakeAnim}
+                />
+              ))}
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.dotsRow}>
+            {Array.from({ length: OTP_LENGTH }).map((_, index) => (
+              <View
+                key={index}
+                style={[styles.dot, index < otp.length && styles.dotFilled]}
               />
             ))}
           </View>
-        </TouchableOpacity>
 
-        {/* Dot progress */}
-        <View style={styles.dotsRow}>
-          {Array.from({ length: OTP_LENGTH }).map((_, i) => (
-            <View
-              key={i}
-              style={[styles.dot, i < otp.length && styles.dotFilled]}
-            />
-          ))}
-        </View>
+          <Countdown onResend={handleResend} resending={resending} />
 
-        {/* Countdown */}
-        <Countdown onResend={handleResend} resending={resending} />
-
-        {/* CTA */}
-        <TouchableOpacity
-          style={[styles.cta, (!isComplete || loading) && styles.ctaOff]}
-          onPress={() => handleVerifyOTP()}
-          disabled={!isComplete || loading}
-          activeOpacity={0.88}
-        >
-          <LinearGradient
-            colors={
-              isComplete ? [palette.gold, "#D4922A"] : ["#C8D4E0", "#B8C8D8"]
-            }
-            style={styles.ctaGrad}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+          <TouchableOpacity
+            style={[styles.cta, (!isComplete || loading) && styles.ctaOff]}
+            onPress={() => handleVerifyOTP()}
+            disabled={!isComplete || loading}
+            activeOpacity={0.88}
           >
-            {loading ? (
-              <ActivityIndicator color={palette.navy} size="small" />
-            ) : (
-              <View style={styles.ctaInner}>
-                <Text
-                  style={[styles.ctaText, !isComplete && styles.ctaTextOff]}
-                >
-                  Verify & Continue
-                </Text>
-                {/* <View
-                  style={[styles.ctaArrow, isComplete && styles.ctaArrowOn]}
-                > */}
-                <Ionicons
-                  name="arrow-forward"
-                  size={15}
-                  color={isComplete ? palette.navy : "#90A4AE"}
-                />
-                {/* </View> */}
-              </View>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={
+                isComplete ? [palette.gold, "#D4922A"] : ["#C8D4E0", "#B8C8D8"]
+              }
+              style={styles.ctaGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              {loading ? (
+                <ActivityIndicator color={palette.navy} size="small" />
+              ) : (
+                <View style={styles.ctaInner}>
+                  <Text
+                    style={[styles.ctaText, !isComplete && styles.ctaTextOff]}
+                  >
+                    Verify & Continue
+                  </Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={15}
+                    color={isComplete ? palette.navy : "#90A4AE"}
+                  />
+                </View>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
 
-        {/* Trust footer */}
-        <View style={styles.trustRow}>
-          <Ionicons
-            name="lock-closed-outline"
-            size={11}
-            color={palette.muted}
-          />
-          <Text style={styles.trustText}>
-            Secured with end-to-end encryption
-          </Text>
-        </View>
-      </Animated.View>
+          <View style={styles.trustRow}>
+            <Ionicons
+              name="lock-closed-outline"
+              size={11}
+              color={palette.muted}
+            />
+            <Text style={styles.trustText}>
+              Secured with end-to-end encryption
+            </Text>
+          </View>
+
+          <View style={styles.trustRow}>
+            <TrustBadge icon="lock-closed-outline" label="Encrypted" />
+            <TrustBadge icon="shield-checkmark-outline" label="Verified" />
+            <TrustBadge icon="people-outline" label="500+ Tutors" />
+          </View>
+        </Animated.View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: palette.cream,
   },
-
-  // Hero
-  hero: {},
-  accentLine: {
-    height: 3,
-    backgroundColor: palette.gold,
+  hero: {
+    paddingBottom: 24,
   },
-  backBtn: {
+  heroTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    alignItems: "center",
+  },
+  heroBackBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    marginHorizontal: 16,
-    marginTop: 10,
-    backgroundColor: "rgba(255,255,255,0.10)",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
+    justifyContent: "center",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
   },
-  backLabel: {
-    fontSize: 13,
-    fontFamily: "Manrope_600SemiBold",
-    color: palette.white,
+  heroMeta: {
+    fontSize: 11,
+    fontFamily: "Manrope_700Bold",
+    color: "rgba(255,255,255,0.72)",
+    letterSpacing: 1.4,
   },
-  heroContent: {
+  heroEditorial: {
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  heroBrandRow: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 22,
-    gap: 8,
+    gap: 10,
+  },
+  logoBadgeSmall: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "rgba(232,168,56,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(232,168,56,0.42)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoImageSmall: {
+    width: 18,
+    height: 18,
+    resizeMode: "contain",
+  },
+  heroBrand: {
+    fontSize: 12,
+    fontFamily: "Manrope_700Bold",
+    color: "rgba(255,255,255,0.84)",
+    letterSpacing: 1.2,
   },
   heroTitle: {
-    fontSize: 21,
-    fontFamily: "Manrope_700Bold",
+    fontSize: 36,
+    fontFamily: "Manrope_600SemiBold",
     color: palette.white,
-    letterSpacing: -0.3,
-    marginTop: 4,
+    letterSpacing: -1.1,
+    lineHeight: 40,
   },
   heroSub: {
     fontSize: 13,
     fontFamily: "Manrope_400Regular",
-    color: "rgba(255,255,255,0.52)",
+    color: "rgba(255,255,255,0.78)",
+    lineHeight: 19,
+    maxWidth: 300,
   },
   phonePill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
+    alignSelf: "flex-start",
     backgroundColor: "rgba(232,168,56,0.13)",
     borderRadius: 22,
     paddingHorizontal: 14,
@@ -707,127 +649,55 @@ const styles = StyleSheet.create({
     color: palette.goldLight,
     letterSpacing: 0.6,
   },
-  heroCurve: {
-    height: 28,
-    backgroundColor: palette.cream,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+  scrollView: { flex: 1 },
+  scrollContent: {
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 40,
   },
-
-  // Shield ring
-  shieldOuter: {
-    width: 104,
-    height: 104,
-    position: "relative",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  ringDot: {
-    position: "absolute",
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  shieldCenter: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.14)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  // Card
   card: {
-    marginHorizontal: 16,
-    marginTop: -4,
     backgroundColor: palette.white,
     borderRadius: 24,
-    paddingHorizontal: 22,
-    paddingTop: 20,
-    paddingBottom: 22,
+    padding: 24,
     shadowColor: palette.navy,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.09,
+    shadowOpacity: 0.08,
     shadowRadius: 24,
-    elevation: 8,
-  },
-
-  // Step indicator
-  stepWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 18,
-  },
-  stepItem: {
-    alignItems: "center",
-    gap: 4,
-  },
-  stepCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: palette.border,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  stepCircleDone: {
-    backgroundColor: palette.gold,
-    borderColor: palette.gold,
-  },
-  stepCircleActive: {
-    borderColor: palette.navy,
-    backgroundColor: palette.navy,
-  },
-  stepNum: {
-    fontSize: 11,
-    fontFamily: "Manrope_700Bold",
-    color: palette.muted,
-  },
-  stepNumActive: {
-    color: palette.gold,
-  },
-  stepLabel: {
-    fontSize: 10,
-    fontFamily: "Manrope_500Medium",
-    color: palette.muted,
-  },
-  stepLabelActive: {
-    color: palette.ink,
-    fontFamily: "Manrope_700Bold",
-  },
-  stepConnector: {
-    width: 36,
-    height: 2,
-    backgroundColor: palette.border,
-    marginHorizontal: 4,
+    elevation: 6,
     marginBottom: 14,
   },
-  stepConnectorDone: {
-    backgroundColor: palette.gold,
+  stepIndicatorSimplified: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 18,
   },
-
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: palette.navy,
+  },
+  stepLabelSimple: {
+    fontSize: 11,
+    fontFamily: "Manrope_600SemiBold",
+    color: palette.muted,
+    letterSpacing: 0.4,
+  },
   cardTitle: {
-    fontSize: 17,
+    fontSize: 24,
     fontFamily: "Manrope_700Bold",
     color: palette.ink,
-    textAlign: "center",
     marginBottom: 3,
   },
   cardSub: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: "Manrope_400Regular",
     color: palette.muted,
-    textAlign: "center",
+    lineHeight: 19,
     marginBottom: 18,
   },
-
-  // OTP
   hiddenInput: {
     position: "absolute",
     opacity: 0,
@@ -859,7 +729,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   otpBoxFilled: {
-    borderColor: palette.navy,
+    borderColor: palette.navyLight,
     backgroundColor: palette.white,
   },
   otpChar: {
@@ -873,8 +743,6 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: palette.gold,
   },
-
-  // Dots
   dotsRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -890,8 +758,6 @@ const styles = StyleSheet.create({
   dotFilled: {
     backgroundColor: palette.gold,
   },
-
-  // Countdown
   countdownWrap: {
     alignItems: "center",
     gap: 7,
@@ -936,8 +802,6 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_700Bold",
     color: palette.gold,
   },
-
-  // CTA
   cta: {
     borderRadius: 14,
     overflow: "hidden",
@@ -963,34 +827,41 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   ctaText: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: "Manrope_700Bold",
     color: palette.navy,
     letterSpacing: 0.2,
   },
   ctaTextOff: { color: "#90A4AE" },
-  ctaArrow: {
-    width: 26,
-    height: 26,
-    borderRadius: 7,
-    backgroundColor: "rgba(0,0,0,0.06)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  ctaArrowOn: {
-    backgroundColor: "rgba(13,27,42,0.12)",
-  },
-
-  // Trust
   trustRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "center",
-    gap: 5,
+    gap: 10,
+    marginTop: 10,
   },
-  trustText: {
-    fontSize: 11,
-    fontFamily: "Manrope_400Regular",
-    color: palette.muted,
+  trustBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: palette.goldPale,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: palette.goldBorder,
+  },
+  trustBadgeText: {
+    fontSize: 10,
+    fontFamily: "Manrope_600SemiBold",
+    color: palette.ink,
   },
 });
+
+function TrustBadge({ icon, label }: { icon: string; label: string }) {
+  return (
+    <View style={styles.trustBadge}>
+      <Ionicons name={icon as any} size={13} color={palette.gold} />
+      <Text style={styles.trustBadgeText}>{label}</Text>
+    </View>
+  );
+}

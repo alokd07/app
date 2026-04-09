@@ -25,6 +25,11 @@ node_modules/
 next-env.d.ts
 *.tsbuildinfo
 
+# Expo
+.expo/
+.expo-shared/
+.metro-cache/
+
 # Production builds
 /build
 dist/
