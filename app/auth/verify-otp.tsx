@@ -855,6 +855,11 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_600SemiBold",
     color: palette.ink,
   },
+  trustText: {
+    fontSize: 11,
+    fontFamily: "Manrope_400Regular",
+    color: palette.muted,
+  },
 });
 
 function TrustBadge({ icon, label }: { icon: string; label: string }) {
@@ -865,3 +870,4 @@ function TrustBadge({ icon, label }: { icon: string; label: string }) {
     </View>
   );
 }
+  

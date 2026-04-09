@@ -13,10 +13,12 @@ import { colors } from "../src/theme/colors";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import CentralizedHeader from "../components/CentralizedHeader";
 import * as SplashScreen from "expo-splash-screen";
+import { useAuthStore } from "@/src/store/authStore";
 
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const hydrateUser = useAuthStore((state) => state.hydrateUser);
   const [fontsLoaded] = useFonts({
     Manrope_400Regular,
     Manrope_500Medium,
@@ -30,6 +32,10 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    hydrateUser();
+  }, [hydrateUser]);
 
   if (!fontsLoaded) {
     return (

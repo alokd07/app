@@ -3,16 +3,9 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const P = {
-  navy: "#0D1B2A",
-  gold: "#E8A838",
-  cream: "#FAF7F2",
-  white: "#FFFFFF",
-  ink: "#0D1B2A",
-  muted: "#8A9BB0",
-  border: "#E4EAF2",
-};
+import { useAuthStore } from "@/src/store/authStore";
+import Avatar from "./Avatar";
+import { appColors } from "../src/theme/colors";
 
 function routeNameToTitle(routeName: string) {
   return routeName
@@ -29,6 +22,8 @@ export default function CentralizedHeader({
   back,
 }: any) {
   const insets = useSafeAreaInsets();
+  const user = useAuthStore((state) => state.user);
+
   const title =
     typeof options.headerTitle === "string"
       ? options.headerTitle
@@ -60,7 +55,7 @@ export default function CentralizedHeader({
             <Ionicons
               name={back ? "chevron-back" : "home-outline"}
               size={20}
-              color={P.ink}
+              color={appColors.ink}
             />
           </TouchableOpacity>
 
@@ -73,7 +68,19 @@ export default function CentralizedHeader({
 
           <View style={styles.profileBtn}>
             <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>AD</Text>
+              {user?.imageUrl ? (
+                <Avatar
+                  size={42}
+                  uri={user?.imageUrl || undefined}
+                  name={user?.firstName || "U"}
+                />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {user?.firstName
+                    ? user.firstName.charAt(0).toUpperCase()
+                    : "U"}
+                </Text>
+              )}
             </View>
             <View style={styles.activeDot} />
           </View>
@@ -85,7 +92,7 @@ export default function CentralizedHeader({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: P.cream,
+    backgroundColor: appColors.cream,
     paddingHorizontal: 16,
     paddingBottom: 10,
   },
@@ -143,14 +150,14 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 9,
     fontFamily: "Manrope_800ExtraBold",
-    color: P.muted,
+    color: appColors.muted,
     letterSpacing: 1.8,
     marginBottom: -1,
   },
   mainTitle: {
     fontSize: 18,
     fontFamily: "Manrope_800ExtraBold",
-    color: P.ink,
+    color: appColors.ink,
   },
   profileBtn: {
     position: "relative",
@@ -159,26 +166,26 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: P.navy,
+    backgroundColor: appColors.navy,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: P.white,
+    borderColor: appColors.white,
   },
   avatarText: {
-    color: P.gold,
+    color: appColors.gold,
     fontFamily: "Manrope_700Bold",
     fontSize: 13,
   },
   activeDot: {
     position: "absolute",
-    top: -2,
-    right: -2,
+    bottom: 2,
+    right: 1,
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: P.gold,
+    backgroundColor: appColors.gold,
     borderWidth: 2,
-    borderColor: P.cream,
+    borderColor: appColors.cream,
   },
 });

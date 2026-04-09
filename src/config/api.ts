@@ -8,6 +8,7 @@ export const API_CONFIG = {
     VERIFY_OTP: "/auth/whatsapp/verify-otp",
     RESEND_OTP: "/auth/whatsapp/resend-otp",
     CREATE_ACCOUNT: "/student/create-account",
+    UPDATE_STUDENT_PROFILE: "/student/updateStudentProfile",
     PINCODE_LOOKUP: (code: string) => `/student/pincode/${code}`,
 
     // Teachers

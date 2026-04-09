@@ -44,10 +44,15 @@ export interface Booking {
 // User Types
 export interface User {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  email: string;
   phone: string;
-  email?: string;
-  profileImage?: string;
+  imageUrl?: string;
+  streak: number;
+  referralCode: string;
+  referredBy?: string;
+  coursesCompleted: number;
 }
 
 // Auth Types

@@ -19,14 +19,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import apiClient from "../../src/services/api";
 import { API_CONFIG } from "../../src/config/api";
-import { Teacher } from "../../src/types";
 import { debounce } from "../../src/utils/helpers";
-import { getUserData } from "../../src/services/auth";
 import { appColors } from "../../src/theme/colors";
 import Avatar from "@/components/Avatar";
 // expo haptic
 import * as Haptics from "expo-haptics";
 import SafeBlurView from "../../components/SafeBlurView";
+import { useAuthStore } from "@/src/store/authStore";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 56) / 2;
@@ -457,7 +456,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const user = useAuthStore((state) => state.user);
   const [activeFilter, setActiveFilter] = useState("All");
 
   const onEndReachedCalledDuringMomentum = useRef(true);
@@ -478,15 +477,9 @@ export default function HomeScreen() {
     }, 2500);
   };
   const FILTERS = ["All", "Math", "Science", "English", "Near Me"];
-
-  useEffect(() => {
-    loadUser();
-  }, []);
-
-  const loadUser = async () => {
-    const userData = await getUserData();
-    setUser(userData);
-  };
+  const displayName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
+    "Student";
 
   const fetchTeachers = async (pageNum = 1, search = "") => {
     try {
@@ -594,9 +587,7 @@ export default function HomeScreen() {
             />
             <View>
               <Text style={styles.greetingLabel}>{getGreeting()}</Text>
-              <Text style={styles.userNameNew}>
-                {user?.firstName + " " + user?.lastName || "Student"}
-              </Text>
+              <Text style={styles.userNameNew}>{displayName}</Text>
             </View>
           </View>
           <View style={styles.row}>

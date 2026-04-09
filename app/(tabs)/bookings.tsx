@@ -22,8 +22,8 @@ import {
   formatCurrency,
 } from "../../src/utils/helpers";
 import Avatar from "@/components/Avatar";
-import { getUserData } from "@/src/services/auth";
 import { appColors } from "../../src/theme/colors";
+import { useAuthStore } from "@/src/store/authStore";
 
 const { width } = Dimensions.get("window");
 
@@ -290,16 +290,8 @@ function BookingCard({ item, index }: { item: any; index: number }) {
 export default function BookingsScreen() {
   const [activeTab, setActiveTab] = useState("upcoming");
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      const userData = await getUserData();
-      setUser(userData);
-    };
-    loadUser();
-  }, []);
-
+  const user = useAuthStore((state) => state.user);
+  
   // Stats Logic
   const stats = [
     { label: "Active", value: "3", icon: "flash" },
