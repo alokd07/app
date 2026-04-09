@@ -33,11 +33,11 @@ export interface Booking {
   student: string;
   date: string;
   timeSlot: TimeSlot;
-  status: 'upcoming' | 'completed' | 'cancelled';
+  status: "upcoming" | "completed" | "cancelled";
   amount: number;
   advancePaid: number;
   remainingAmount: number;
-  mode: 'online' | 'offline';
+  mode: "online" | "offline";
   createdAt?: string;
 }
 
@@ -53,6 +53,8 @@ export interface User {
   referralCode: string;
   referredBy?: string;
   coursesCompleted: number;
+  freezeCount?: number;
+  lastActiveDate?: string;
 }
 
 // Auth Types

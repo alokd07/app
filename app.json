@@ -2,7 +2,7 @@
   "expo": {
     "name": "BookMySession",
     "slug": "bookmysession",
-    "version": "1.0.1-alpha",
+    "version": "1.0.2-alpha",
     "orientation": "portrait",
     "icon": "./assets/images/Logo.png",
     "scheme": "bookmysession",

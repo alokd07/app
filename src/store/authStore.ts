@@ -2,6 +2,11 @@ import { create } from "zustand";
 import { User } from "../types";
 import { getUserData } from "../services/auth";
 
+const toNumber = (value: any, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 const normalizeUser = (storedUser: any): User | null => {
   const base =
     storedUser?.student ??
@@ -21,11 +26,38 @@ const normalizeUser = (storedUser: any): User | null => {
     email: base.email || "",
     phone: base.phone || base.phoneNumber || "",
     imageUrl: base.imageUrl || "",
-    streak: Number(base.streak || 0),
+    streak: toNumber(base.streak, 0),
+    freezeCount: toNumber(base.freezeCount, 0),
+    lastActiveDate: base.lastActiveDate,
     referralCode: base.referralCode || "",
     referredBy: base.referredBy,
-    coursesCompleted: Number(base.coursesCompleted || 0),
+    coursesCompleted: toNumber(base.coursesCompleted, 0),
   };
+};
+
+const isSameUser = (a: User | null, b: User | null) => {
+  if (a === b) {
+    return true;
+  }
+
+  if (!a || !b) {
+    return false;
+  }
+
+  return (
+    a._id === b._id &&
+    a.firstName === b.firstName &&
+    a.lastName === b.lastName &&
+    a.email === b.email &&
+    a.phone === b.phone &&
+    a.imageUrl === b.imageUrl &&
+    a.streak === b.streak &&
+    a.freezeCount === b.freezeCount &&
+    a.lastActiveDate === b.lastActiveDate &&
+    a.referralCode === b.referralCode &&
+    a.referredBy === b.referredBy &&
+    a.coursesCompleted === b.coursesCompleted
+  );
 };
 
 interface AuthState {
@@ -40,7 +72,14 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
-  setUser: (user) => set({ user: normalizeUser(user) }),
+  setUser: (user) =>
+    set((state) => {
+      const normalized = normalizeUser(user);
+      if (isSameUser(state.user, normalized)) {
+        return state;
+      }
+      return { user: normalized };
+    }),
   hydrateUser: async () => {
     if (get().user) {
       return;

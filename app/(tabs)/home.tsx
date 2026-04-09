@@ -12,6 +12,7 @@ import {
   Animated,
   Dimensions,
   ScrollView,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,11 +27,10 @@ import Avatar from "@/components/Avatar";
 import * as Haptics from "expo-haptics";
 import SafeBlurView from "../../components/SafeBlurView";
 import { useAuthStore } from "@/src/store/authStore";
+import { saveUserData } from "@/src/services/auth";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 56) / 2;
-
-const palette = appColors;
 
 // ─── Sample data ──────────────────────────────────────────────────────────────
 const promotions = [
@@ -166,13 +166,13 @@ function QuickAction({ icon, label, onPress, gradient }: any) {
       activeOpacity={0.85}
     >
       <LinearGradient
-        colors={gradient || [palette.goldPale, palette.goldPale]}
+        colors={gradient || [appColors.goldPale, appColors.goldPale]}
         style={styles.quickActionGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
         <View style={styles.quickActionIcon}>
-          <Ionicons name={icon} size={22} color={palette.gold} />
+          <Ionicons name={icon} size={22} color={appColors.gold} />
         </View>
         <Text style={styles.quickActionLabel}>{label}</Text>
       </LinearGradient>
@@ -205,39 +205,58 @@ function StreakItem({
   day,
   active,
   isToday,
+  missed,
+  onPress,
 }: {
   day: string;
   active: boolean;
   isToday: boolean;
+  missed: boolean;
+  onPress: () => void;
 }) {
   return (
-    <View style={styles.streakItem}>
+    <TouchableOpacity
+      style={styles.streakItem}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
       <View
         style={[
           styles.streakDot,
           active && styles.streakDotActive,
+          missed && styles.streakDotMissed,
           isToday && styles.streakDotToday,
         ]}
       >
-        {active && <Ionicons name="checkmark" size={10} color={palette.navy} />}
+        {active && (
+          <Ionicons name="checkmark" size={10} color={appColors.navy} />
+        )}
+
+        {missed && <Ionicons name="close" size={10} color="#fff" />}
+
+        {!active && !missed && (
+          <Ionicons name="gift" size={10} color={appColors.navy} />
+        )}
       </View>
+
       <Text
         style={[
           styles.streakDayText,
           active && styles.streakDayTextActive,
+          missed && styles.streakDayTextMissed,
           isToday && styles.streakDayTextToday,
         ]}
       >
         {day}
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 // ─── CircularProgress (simplified) ───────────────────────────────────────────
 function CircularProgress({
   progress,
-  color = palette.gold,
+  color = appColors.gold,
   label,
   sublabel,
 }: any) {
@@ -253,7 +272,9 @@ function CircularProgress({
   return (
     <View style={styles.circularProgress}>
       <View style={styles.circularWrapper}>
-        <View style={[styles.circularTrack, { borderColor: palette.border }]} />
+        <View
+          style={[styles.circularTrack, { borderColor: appColors.border }]}
+        />
         <View
           style={[
             styles.circularFill,
@@ -341,8 +362,8 @@ function TeacherCard({ item, index }: { item: any; index: number }) {
                 styles.availDot,
                 {
                   backgroundColor: item.isAvailableNow
-                    ? palette.success
-                    : palette.muted,
+                    ? appColors.success
+                    : appColors.muted,
                 },
               ]}
             />
@@ -353,13 +374,13 @@ function TeacherCard({ item, index }: { item: any; index: number }) {
 
           {/* Rating — top right */}
           <View style={styles.ratingBadge}>
-            <Ionicons name="star" size={10} color={palette.gold} />
+            <Ionicons name="star" size={10} color={appColors.gold} />
             <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
           </View>
 
           {/* Subject pill — bottom left over gradient */}
           <View style={styles.subjectPill}>
-            <Ionicons name="book-outline" size={10} color={palette.gold} />
+            <Ionicons name="book-outline" size={10} color={appColors.gold} />
             <Text style={styles.subjectPillText} numberOfLines={1}>
               {subjectShort}
             </Text>
@@ -382,7 +403,11 @@ function TeacherCard({ item, index }: { item: any; index: number }) {
 
           {/* Area */}
           <View style={styles.infoRow}>
-            <Ionicons name="location-outline" size={12} color={palette.muted} />
+            <Ionicons
+              name="location-outline"
+              size={12}
+              color={appColors.muted}
+            />
             <Text style={styles.infoText} numberOfLines={1}>
               {item.area}
             </Text>
@@ -390,10 +415,14 @@ function TeacherCard({ item, index }: { item: any; index: number }) {
 
           {/* Experience + languages */}
           <View style={styles.infoRow}>
-            <Ionicons name="time-outline" size={12} color={palette.muted} />
+            <Ionicons name="time-outline" size={12} color={appColors.muted} />
             <Text style={styles.infoText}>{item.experience} yrs exp</Text>
             <View style={styles.infoDivider} />
-            <Ionicons name="language-outline" size={12} color={palette.muted} />
+            <Ionicons
+              name="language-outline"
+              size={12}
+              color={appColors.muted}
+            />
             <Text style={styles.infoText} numberOfLines={1}>
               {(item.languages || []).slice(0, 2).join(", ")}
             </Text>
@@ -419,7 +448,11 @@ function TeacherCard({ item, index }: { item: any; index: number }) {
 
           {/* Days available */}
           <View style={styles.daysRow}>
-            <Ionicons name="calendar-outline" size={11} color={palette.muted} />
+            <Ionicons
+              name="calendar-outline"
+              size={11}
+              color={appColors.muted}
+            />
             <Text style={styles.daysText}>{dayInitials}</Text>
           </View>
 
@@ -433,13 +466,13 @@ function TeacherCard({ item, index }: { item: any; index: number }) {
             onPress={() => router.push(`/teacher/${item._id}`)}
           >
             <LinearGradient
-              colors={[palette.gold, "#D4922A"]}
+              colors={[appColors.gold, "#D4922A"]}
               style={styles.demoBtnGrad}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
               <Text style={styles.demoBtnText}>Request Demo</Text>
-              <Ionicons name="arrow-forward" size={13} color={palette.navy} />
+              <Ionicons name="arrow-forward" size={13} color={appColors.navy} />
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -457,6 +490,7 @@ export default function HomeScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const user = useAuthStore((state) => state.user);
+  const setUser = useAuthStore((state) => state.setUser);
   const [activeFilter, setActiveFilter] = useState("All");
 
   const onEndReachedCalledDuringMomentum = useRef(true);
@@ -574,10 +608,115 @@ export default function HomeScreen() {
     extrapolate: "clamp",
   });
 
+  const calculateStreak = (user: any) => {
+    const today = new Date();
+    const last = user?.lastActiveDate ? new Date(user.lastActiveDate) : null;
+
+    if (!last) {
+      return {
+        ...user,
+        streak: 1,
+        lastActiveDate: today.toISOString(),
+      };
+    }
+
+    const diffDays = Math.floor(
+      (today.setHours(0, 0, 0, 0) - last.setHours(0, 0, 0, 0)) /
+        (1000 * 60 * 60 * 24),
+    );
+
+    if (diffDays === 0) {
+      return user; // already active today
+    }
+
+    if (diffDays === 1) {
+      return {
+        ...user,
+        streak: (user.streak || 0) + 1,
+        lastActiveDate: new Date().toISOString(),
+      };
+    }
+
+    // ❗ gap detected
+    if (diffDays > 1) {
+      if (user.freezeCount > 0) {
+        return {
+          ...user,
+          freezeCount: user.freezeCount - 1, // consume freeze
+          lastActiveDate: new Date().toISOString(),
+          // streak stays SAME
+        };
+      }
+
+      // no freeze → reset
+      return {
+        ...user,
+        streak: 1,
+        lastActiveDate: new Date().toISOString(),
+      };
+    }
+
+    return user;
+  };
+
+  const handleStreakPress = (missed: boolean, isToday: boolean) => {
+    if (missed && isToday) {
+      Alert.alert("Missed Today", "Use a freeze to protect your streak?", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Use Freeze", onPress: handleUseFreeze },
+      ]);
+    } else if (missed) {
+      Alert.alert("Missed Day", "You missed this day.");
+    } else {
+      Alert.alert("Great!", "You're on track 🔥");
+    }
+  };
+
+  const handleUseFreeze = () => {
+    if (!user?.freezeCount) {
+      Alert.alert("No freezes left");
+      return;
+    }
+
+    const updated = {
+      ...user,
+      freezeCount: user.freezeCount - 1,
+      lastActiveDate: new Date().toISOString(),
+    };
+
+    setUser(updated);
+    saveUserData(updated);
+
+    Alert.alert("Streak saved!", "Freeze used ❄️");
+  };
+
+  useEffect(() => {
+    if (!user) return;
+
+    const updated = calculateStreak(user);
+
+    if (
+      updated.streak !== user.streak ||
+      updated.lastActiveDate !== user.lastActiveDate
+    ) {
+      setUser(updated);
+      saveUserData(updated);
+    }
+  }, [setUser, user]);
+
+  // const markLearningActivity = () => {
+  //   const updated = calculateStreak(user);
+  //   setUser(updated);
+  //   saveUserData(updated);
+  // };
+
+  const todayIndex = (new Date().getDay() + 6) % 7;
+  const streak = user?.streak || 0;
+
   const renderHeader = () => (
     <SafeAreaView style={styles.headerContainer}>
       {/* ── Top Nav ── */}
-      <View style={{ backgroundColor: palette.cream }}>
+      <View style={{ backgroundColor: appColors.cream }}>
         <View style={styles.topNav}>
           <View style={styles.row}>
             <Avatar
@@ -592,7 +731,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.row}>
             <TouchableOpacity style={styles.iconBtn}>
-              <Ionicons name="search-outline" size={18} color={palette.ink} />
+              <Ionicons name="search-outline" size={18} color={appColors.ink} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push("/notifications")}
@@ -601,7 +740,7 @@ export default function HomeScreen() {
               <Ionicons
                 name="notifications-outline"
                 size={18}
-                color={palette.ink}
+                color={appColors.ink}
               />
               <View style={styles.notifDot} />
             </TouchableOpacity>
@@ -611,7 +750,7 @@ export default function HomeScreen() {
 
       {/* ── Hero Card ── */}
       <LinearGradient
-        colors={[palette.navy, palette.navyMid]}
+        colors={[appColors.navy, appColors.navyMid]}
         style={styles.heroCard}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -626,7 +765,7 @@ export default function HomeScreen() {
           </View>
           <TouchableOpacity style={styles.continueBtn}>
             <Text style={styles.continueBtnText}>Continue</Text>
-            <Ionicons name="arrow-forward" size={14} color={palette.navy} />
+            <Ionicons name="arrow-forward" size={14} color={appColors.navy} />
           </TouchableOpacity>
         </View>
         <View style={styles.heroDecorCircle1} />
@@ -642,7 +781,7 @@ export default function HomeScreen() {
         <QuickAction
           icon="book-outline"
           label="Courses"
-          gradient={[palette.goldPale, palette.goldPale]}
+          gradient={[appColors.goldPale, appColors.goldPale]}
         />
         <QuickAction icon="trophy-outline" label="Achievements" />
         <QuickAction icon="calendar-outline" label="Schedule" />
@@ -660,7 +799,7 @@ export default function HomeScreen() {
         <View style={styles.progressGrid}>
           <CircularProgress
             progress={40}
-            color={palette.gold}
+            color={appColors.gold}
             label="Certificates"
             sublabel="6 of 15"
           />
@@ -672,7 +811,7 @@ export default function HomeScreen() {
           />
           <CircularProgress
             progress={75}
-            color={palette.success}
+            color={appColors.success}
             label="Exams"
             sublabel="35 passed"
           />
@@ -684,11 +823,14 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>Learning Streak</Text>
-            <Text style={styles.streakCount}>{user?.streak || 4} days 🔥</Text>
+            <Text style={styles.streakCount}>{user?.streak || 0} days 🔥</Text>
           </View>
-          <TouchableOpacity style={styles.claimBtn}>
-            <Ionicons name="gift-outline" size={14} color={palette.navy} />
-            <Text style={styles.claimText}>Claim</Text>
+
+          <TouchableOpacity style={styles.freezeBtn} onPress={handleUseFreeze}>
+            <Ionicons name="snow-outline" size={14} color="#fff" />
+            <Text style={styles.freezeText}>
+              Freeze ({user?.freezeCount || 0})
+            </Text>
           </TouchableOpacity>
         </View>
         <ScrollView
@@ -696,14 +838,26 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.streakScroll}
         >
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
-            <StreakItem
-              key={d}
-              day={d}
-              active={i < (user?.streak || 4)}
-              isToday={i === new Date().getDay() - 1}
-            />
-          ))}
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => {
+            const isToday = i === todayIndex;
+
+            const isActive = i >= todayIndex - streak + 1 && i <= todayIndex;
+
+            const isPast = i < todayIndex;
+
+            const isMissed = isPast && !isActive;
+
+            return (
+              <StreakItem
+                key={d}
+                day={d}
+                active={isActive}
+                isToday={isToday}
+                missed={isMissed}
+                onPress={() => handleStreakPress(isMissed, isToday)}
+              />
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -732,22 +886,26 @@ export default function HomeScreen() {
           <Ionicons
             name="search"
             size={18}
-            color={searchQuery ? palette.gold : palette.muted}
+            color={searchQuery ? appColors.gold : appColors.muted}
           />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by subject, area or teacher…"
-            placeholderTextColor={palette.muted}
+            placeholderTextColor={appColors.muted}
             value={searchQuery}
             onChangeText={handleSearch}
           />
           {searchQuery ? (
             <TouchableOpacity onPress={() => handleSearch("")}>
-              <Ionicons name="close-circle" size={18} color={palette.muted} />
+              <Ionicons name="close-circle" size={18} color={appColors.muted} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity>
-              <Ionicons name="options-outline" size={18} color={palette.gold} />
+              <Ionicons
+                name="options-outline"
+                size={18}
+                color={appColors.gold}
+              />
             </TouchableOpacity>
           )}
         </View>
@@ -790,7 +948,7 @@ export default function HomeScreen() {
   const renderEmpty = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconBox}>
-        <Ionicons name="people-outline" size={40} color={palette.gold} />
+        <Ionicons name="people-outline" size={40} color={appColors.gold} />
       </View>
       <Text style={styles.emptyTitle}>No teachers found</Text>
       <Text style={styles.emptySubtitle}>
@@ -808,7 +966,7 @@ export default function HomeScreen() {
   const renderFooter = () =>
     loading && page > 1 ? (
       <View style={styles.listFooter}>
-        <ActivityIndicator size="small" color={palette.gold} />
+        <ActivityIndicator size="small" color={appColors.gold} />
         <Text style={styles.footerText}>Loading more…</Text>
       </View>
     ) : null;
@@ -830,8 +988,8 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={palette.gold}
-            colors={[palette.gold]}
+            tintColor={appColors.gold}
+            colors={[appColors.gold]}
           />
         }
         numColumns={2}
@@ -883,12 +1041,12 @@ export default function HomeScreen() {
           onPress={() => startAiMatch()}
         >
           <LinearGradient
-            colors={[palette.gold, palette.goldLight]}
+            colors={[appColors.gold, appColors.goldLight]}
             style={styles.fabGrad}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Ionicons name="sparkles" size={20} color={palette.navy} />
+            <Ionicons name="sparkles" size={20} color={appColors.navy} />
             <Text style={styles.fabLabel}>AI Match</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -903,7 +1061,7 @@ export default function HomeScreen() {
             fallbackColor="rgba(2, 8, 23, 0.88)"
           >
             <View style={styles.matchContent}>
-              <Ionicons name="sparkles" size={80} color={palette.gold} />
+              <Ionicons name="sparkles" size={80} color={appColors.gold} />
               <Text style={styles.matchTitle}>
                 Finding your perfect tutor...
               </Text>
@@ -912,7 +1070,7 @@ export default function HomeScreen() {
               </Text>
               <ActivityIndicator
                 size="large"
-                color={palette.gold}
+                color={appColors.gold}
                 style={{ marginTop: 30 }}
               />
             </View>
@@ -925,11 +1083,11 @@ export default function HomeScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: palette.cream },
+  root: { flex: 1, backgroundColor: appColors.cream },
   listContent: { paddingBottom: 100 },
 
   // ── Header ──
-  headerContainer: { backgroundColor: palette.cream },
+  headerContainer: { backgroundColor: appColors.cream },
   topNav: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -942,18 +1100,18 @@ const styles = StyleSheet.create({
   greetingLabel: {
     fontSize: 12,
     fontFamily: "Manrope_400Regular",
-    color: palette.muted,
+    color: appColors.muted,
   },
   userNameNew: {
     fontSize: 18,
     fontFamily: "Manrope_700Bold",
-    color: palette.ink,
+    color: appColors.ink,
     letterSpacing: -0.4,
   },
   iconBtn: {
     position: "relative",
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: appColors.border,
     borderRadius: 50,
     padding: 8,
   },
@@ -964,9 +1122,9 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: palette.success,
+    backgroundColor: appColors.success,
     borderWidth: 1.5,
-    borderColor: palette.cream,
+    borderColor: appColors.cream,
   },
 
   // ── Hero Card ──
@@ -976,7 +1134,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 20,
     overflow: "hidden",
-    shadowColor: palette.navy,
+    shadowColor: appColors.navy,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
     shadowRadius: 20,
@@ -991,7 +1149,7 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 20,
     fontFamily: "Manrope_700Bold",
-    color: palette.white,
+    color: appColors.white,
     marginBottom: 4,
   },
   heroSubtitle: {
@@ -1003,7 +1161,7 @@ const styles = StyleSheet.create({
   continueBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: palette.gold,
+    backgroundColor: appColors.gold,
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 12,
@@ -1012,14 +1170,14 @@ const styles = StyleSheet.create({
   continueBtnText: {
     fontSize: 13,
     fontFamily: "Manrope_700Bold",
-    color: palette.navy,
+    color: appColors.navy,
   },
   heroDecorCircle1: {
     position: "absolute",
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: palette.goldPale,
+    backgroundColor: appColors.goldPale,
     top: -20,
     right: 60,
     opacity: 0.5,
@@ -1029,7 +1187,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: palette.goldBorder,
+    backgroundColor: appColors.goldBorder,
     top: 10,
     right: 10,
     opacity: 0.4,
@@ -1043,17 +1201,17 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: palette.goldBorder,
+    borderColor: appColors.goldBorder,
   },
   quickActionIcon: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: palette.white,
+    backgroundColor: appColors.white,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 10,
-    shadowColor: palette.navy,
+    shadowColor: appColors.navy,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 10,
@@ -1062,7 +1220,7 @@ const styles = StyleSheet.create({
   quickActionLabel: {
     fontSize: 13,
     fontFamily: "Manrope_600SemiBold",
-    color: palette.ink,
+    color: appColors.ink,
     textAlign: "center",
   },
 
@@ -1077,44 +1235,59 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontFamily: "Manrope_700Bold",
-    color: palette.ink,
+    color: appColors.ink,
   },
   seeAll: {
     fontSize: 13,
     fontFamily: "Manrope_600SemiBold",
-    color: palette.gold,
+    color: appColors.gold,
   },
   streakCount: {
     fontSize: 12,
     fontFamily: "Manrope_500Medium",
-    color: palette.muted,
+    color: appColors.muted,
     marginTop: 2,
+  },
+  freezeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#3B82F6", // blue
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    gap: 4,
+  },
+
+  freezeText: {
+    fontSize: 11,
+    fontFamily: "Manrope_600SemiBold",
+    color: "#fff",
   },
   claimBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: palette.goldPale,
+    backgroundColor: appColors.goldPale,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: palette.goldBorder,
+    borderColor: appColors.goldBorder,
     gap: 4,
   },
   claimText: {
     fontSize: 11,
     fontFamily: "Manrope_600SemiBold",
-    color: palette.ink,
+    color: appColors.ink,
   },
 
   // ── Progress ──
   progressGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: palette.white,
+    backgroundColor: appColors.white,
     borderRadius: 20,
     padding: 16,
-    shadowColor: palette.navy,
+    shadowColor: appColors.navy,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
@@ -1151,18 +1324,18 @@ const styles = StyleSheet.create({
   circularPercent: {
     fontSize: 13,
     fontFamily: "Manrope_700Bold",
-    color: palette.ink,
+    color: appColors.ink,
   },
   circularLabel: {
     fontSize: 11,
     fontFamily: "Manrope_600SemiBold",
-    color: palette.ink,
+    color: appColors.ink,
     marginBottom: 1,
   },
   circularSublabel: {
     fontSize: 10,
     fontFamily: "Manrope_400Regular",
-    color: palette.muted,
+    color: appColors.muted,
   },
 
   // ── Streak ──
@@ -1172,20 +1345,28 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: palette.border,
+    backgroundColor: appColors.border,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 5,
   },
-  streakDotActive: { backgroundColor: palette.gold },
-  streakDotToday: { borderWidth: 2, borderColor: palette.navy },
+  streakDotActive: { backgroundColor: appColors.gold },
+  streakDotToday: { borderWidth: 2, borderColor: appColors.gold },
+  streakDotMissed: {
+    backgroundColor: appColors.error,
+  },
+
+  streakDayTextMissed: {
+    color: appColors.error,
+    textDecorationLine: "line-through",
+  },
   streakDayText: {
     fontSize: 10,
     fontFamily: "Manrope_500Medium",
-    color: palette.muted,
+    color: appColors.muted,
   },
-  streakDayTextActive: { color: palette.ink, fontFamily: "Manrope_700Bold" },
-  streakDayTextToday: { color: palette.gold },
+  streakDayTextActive: { color: appColors.ink, fontFamily: "Manrope_700Bold" },
+  streakDayTextToday: { color: appColors.gold },
 
   // ── Promos ──
   promoCard: {
@@ -1217,8 +1398,8 @@ const styles = StyleSheet.create({
   },
   promoFooter: { flexDirection: "row" },
   promoBadge: {
-    backgroundColor: palette.gold,
-    color: palette.navy,
+    backgroundColor: appColors.gold,
+    color: appColors.navy,
     fontSize: 9,
     fontFamily: "Manrope_700Bold",
     paddingHorizontal: 7,
@@ -1231,10 +1412,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: palette.white,
+    backgroundColor: appColors.white,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: palette.border,
+    borderColor: appColors.border,
     paddingHorizontal: 14,
     paddingVertical: 13,
   },
@@ -1242,7 +1423,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontFamily: "Manrope_400Regular",
-    color: palette.ink,
+    color: appColors.ink,
   },
 
   // ── Teachers header ──
@@ -1252,26 +1433,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: palette.white,
+    backgroundColor: appColors.white,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: appColors.border,
   },
-  chipActive: { backgroundColor: palette.navy, borderColor: palette.navy },
+  chipActive: { backgroundColor: appColors.navy, borderColor: appColors.navy },
   chipText: {
     fontSize: 12,
     fontFamily: "Manrope_500Medium",
-    color: palette.muted,
+    color: appColors.muted,
   },
-  chipTextActive: { color: palette.white, fontFamily: "Manrope_600SemiBold" },
+  chipTextActive: { color: appColors.white, fontFamily: "Manrope_600SemiBold" },
 
   // ── TEACHER CARD (redesigned) ──
   columnWrapper: { paddingHorizontal: 16, justifyContent: "space-between" },
   cardWrap: { width: CARD_WIDTH, marginBottom: 16 },
   teacherCard: {
-    backgroundColor: palette.white,
+    backgroundColor: appColors.white,
     borderRadius: 20,
     overflow: "hidden",
-    shadowColor: palette.navy,
+    shadowColor: appColors.navy,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
@@ -1307,7 +1488,7 @@ const styles = StyleSheet.create({
   availText: {
     fontSize: 9,
     fontFamily: "Manrope_700Bold",
-    color: palette.white,
+    color: appColors.white,
     letterSpacing: 0.3,
   },
 
@@ -1327,7 +1508,7 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 11,
     fontFamily: "Manrope_700Bold",
-    color: palette.gold,
+    color: appColors.gold,
   },
 
   // Subject pill — bottom of image
@@ -1346,7 +1527,7 @@ const styles = StyleSheet.create({
   subjectPillText: {
     fontSize: 9,
     fontFamily: "Manrope_700Bold",
-    color: palette.navy,
+    color: appColors.navy,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
@@ -1363,22 +1544,22 @@ const styles = StyleSheet.create({
   cardName: {
     fontSize: 13,
     fontFamily: "Manrope_700Bold",
-    color: palette.ink,
+    color: appColors.ink,
     flex: 1,
   },
   boardBadge: {
-    backgroundColor: palette.goldPale,
+    backgroundColor: appColors.goldPale,
     borderRadius: 5,
     paddingHorizontal: 5,
     paddingVertical: 2,
     marginLeft: 4,
     borderWidth: 1,
-    borderColor: palette.goldBorder,
+    borderColor: appColors.goldBorder,
   },
   boardText: {
     fontSize: 8,
     fontFamily: "Manrope_700Bold",
-    color: palette.gold,
+    color: appColors.gold,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
@@ -1392,13 +1573,13 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 10,
     fontFamily: "Manrope_400Regular",
-    color: palette.muted,
+    color: appColors.muted,
     flex: 1,
   },
   infoDivider: {
     width: 1,
     height: 10,
-    backgroundColor: palette.border,
+    backgroundColor: appColors.border,
     marginHorizontal: 3,
   },
 
@@ -1418,7 +1599,7 @@ const styles = StyleSheet.create({
   classPillText: {
     fontSize: 9,
     fontFamily: "Manrope_600SemiBold",
-    color: palette.muted,
+    color: appColors.muted,
   },
 
   // Days
@@ -1431,16 +1612,20 @@ const styles = StyleSheet.create({
   daysText: {
     fontSize: 10,
     fontFamily: "Manrope_500Medium",
-    color: palette.muted,
+    color: appColors.muted,
   },
 
-  cardDivider: { height: 1, backgroundColor: palette.border, marginBottom: 9 },
+  cardDivider: {
+    height: 1,
+    backgroundColor: appColors.border,
+    marginBottom: 9,
+  },
 
   // Demo CTA
   demoBtn: {
     borderRadius: 10,
     overflow: "hidden",
-    shadowColor: palette.gold,
+    shadowColor: appColors.gold,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.22,
     shadowRadius: 8,
@@ -1456,7 +1641,7 @@ const styles = StyleSheet.create({
   demoBtnText: {
     fontSize: 12,
     fontFamily: "Manrope_700Bold",
-    color: palette.navy,
+    color: appColors.navy,
     letterSpacing: 0.1,
   },
 
@@ -1470,11 +1655,11 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 24,
-    backgroundColor: palette.white,
+    backgroundColor: appColors.white,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
-    shadowColor: palette.navy,
+    shadowColor: appColors.navy,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.07,
     shadowRadius: 14,
@@ -1483,20 +1668,20 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontFamily: "Manrope_700Bold",
-    color: palette.ink,
+    color: appColors.ink,
     marginBottom: 6,
     textAlign: "center",
   },
   emptySubtitle: {
     fontSize: 14,
     fontFamily: "Manrope_400Regular",
-    color: palette.muted,
+    color: appColors.muted,
     textAlign: "center",
     marginBottom: 24,
     lineHeight: 20,
   },
   emptyBtn: {
-    backgroundColor: palette.navy,
+    backgroundColor: appColors.navy,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
@@ -1504,7 +1689,7 @@ const styles = StyleSheet.create({
   emptyBtnText: {
     fontSize: 14,
     fontFamily: "Manrope_600SemiBold",
-    color: palette.white,
+    color: appColors.white,
   },
 
   // ── Footer & FAB ──
@@ -1512,7 +1697,7 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 13,
     fontFamily: "Manrope_400Regular",
-    color: palette.muted,
+    color: appColors.muted,
   },
   fabContainer: {
     position: "absolute",
@@ -1532,7 +1717,7 @@ const styles = StyleSheet.create({
     height: 50, // Fixed height
     borderRadius: 25, // Perfect circle ends
     gap: 8,
-    shadowColor: palette.gold,
+    shadowColor: appColors.gold,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -1541,7 +1726,7 @@ const styles = StyleSheet.create({
   fabLabel: {
     fontSize: 14,
     fontFamily: "Manrope_700Bold",
-    color: palette.navy,
+    color: appColors.navy,
   },
   matchOverlay: {
     flex: 1,
@@ -1556,7 +1741,7 @@ const styles = StyleSheet.create({
   matchTitle: {
     fontSize: 22,
     fontFamily: "Manrope_700Bold",
-    color: palette.white,
+    color: appColors.white,
     textAlign: "center",
     marginTop: 20,
   },
