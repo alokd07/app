@@ -13,6 +13,7 @@ import {
   Dimensions,
   ScrollView,
   Alert,
+  Platform,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -298,183 +299,108 @@ function CircularProgress({
 // ─── TEACHER CARD (fully redesigned) ─────────────────────────────────────────
 function TeacherCard({ item, index }: { item: any; index: number }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(16)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 380,
-        delay: index * 75,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 380,
-        delay: index * 75,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 380, delay: index * 70, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 11, delay: index * 70, useNativeDriver: true }),
     ]).start();
   }, []);
 
-  // Compact day display: first letter only
-  const dayInitials = (item.availableDays || [])
-    .map((d: string) => d[0])
-    .join(" ");
-  const subjectShort =
-    item.subject?.length > 12 ? item.subject.slice(0, 11) + "…" : item.subject;
+  const fee = item.feePerSession
+    ? `₹${item.feePerSession}`
+    : item.fee
+    ? `₹${item.fee}`
+    : "₹500";
+
+  const subject = item.subject || "General";
+  const experience = item.experience ?? 3;
+  const rating = item.rating?.toFixed(1) ?? "4.8";
+  const reviews = item.totalReviews ?? item.reviews ?? Math.floor(Math.random() * 80 + 20);
+  const area = item.area || "Delhi";
+  const teaches = item.teaches || [];
 
   return (
-    <Animated.View
-      style={[
-        styles.cardWrap,
-        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-      ]}
-    >
+    <Animated.View style={[styles.cardWrap, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       <TouchableOpacity
         style={styles.teacherCard}
         onPress={() => router.push(`/teacher/${item._id}`)}
         activeOpacity={0.92}
       >
-        {/* ── Photo + overlays ── */}
-        <View style={styles.cardImageWrap}>
-          <Image
-            source={{
-              uri: item.profileImage || "https://via.placeholder.com/150",
-            }}
-            style={styles.cardImage}
-            resizeMode="cover"
-          />
-          <LinearGradient
-            colors={["transparent", "rgba(13,27,42,0.90)"]}
-            style={styles.imageGradient}
-          />
-
-          {/* Availability badge — top left */}
-          <View
-            style={[
-              styles.availBadge,
-              item.isAvailableNow ? styles.availBadgeOn : styles.availBadgeOff,
-            ]}
-          >
-            <View
-              style={[
-                styles.availDot,
-                {
-                  backgroundColor: item.isAvailableNow
-                    ? appColors.success
-                    : appColors.muted,
-                },
-              ]}
+        {/* ── Left: avatar ── */}
+        <View style={styles.cardAvatarCol}>
+          <View style={styles.cardAvatarWrap}>
+            <Image
+              source={{ uri: item.profileImage || `https://i.pravatar.cc/150?u=${item._id}` }}
+              style={styles.cardAvatar}
+              resizeMode="cover"
             />
-            <Text style={styles.availText}>
-              {item.isAvailableNow ? "Available" : "Busy"}
-            </Text>
           </View>
-
-          {/* Rating — top right */}
-          <View style={styles.ratingBadge}>
-            <Ionicons name="star" size={10} color={appColors.gold} />
-            <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-          </View>
-
-          {/* Subject pill — bottom left over gradient */}
-          <View style={styles.subjectPill}>
-            <Ionicons name="book-outline" size={10} color={appColors.gold} />
-            <Text style={styles.subjectPillText} numberOfLines={1}>
-              {subjectShort}
-            </Text>
-          </View>
+          {/* Online indicator */}
+          <View style={[styles.onlineDot, item.isAvailableNow ? styles.onlineDotOn : styles.onlineDotOff]} />
         </View>
 
-        {/* ── Card body ── */}
-        <View style={styles.cardBody}>
-          {/* Name + board */}
-          <View style={styles.nameRow}>
-            <Text style={styles.cardName} numberOfLines={1}>
-              {item.name}
-            </Text>
-            {item.board && (
-              <View style={styles.boardBadge}>
-                <Text style={styles.boardText}>{item.board}</Text>
-              </View>
-            )}
+        {/* ── Right: info ── */}
+        <View style={styles.cardInfo}>
+          {/* Row 1: name + rating */}
+          <View style={styles.cardRow}>
+            <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+            <View style={styles.ratingChip}>
+              <Ionicons name="star" size={10} color={appColors.gold} />
+              <Text style={styles.ratingChipText}>{rating}</Text>
+            </View>
           </View>
 
-          {/* Area */}
-          <View style={styles.infoRow}>
-            <Ionicons
-              name="location-outline"
-              size={12}
-              color={appColors.muted}
-            />
-            <Text style={styles.infoText} numberOfLines={1}>
-              {item.area}
-            </Text>
+          {/* Row 2: subject + experience */}
+          <View style={styles.cardRow}>
+            <View style={styles.subjectTag}>
+              <Text style={styles.subjectTagText} numberOfLines={1}>{subject}</Text>
+            </View>
+            <Text style={styles.expText}>{experience} yrs exp</Text>
           </View>
 
-          {/* Experience + languages */}
-          <View style={styles.infoRow}>
-            <Ionicons name="time-outline" size={12} color={appColors.muted} />
-            <Text style={styles.infoText}>{item.experience} yrs exp</Text>
-            <View style={styles.infoDivider} />
-            <Ionicons
-              name="language-outline"
-              size={12}
-              color={appColors.muted}
-            />
-            <Text style={styles.infoText} numberOfLines={1}>
-              {(item.languages || []).slice(0, 2).join(", ")}
-            </Text>
+          {/* Row 3: location + reviews */}
+          <View style={styles.cardRow}>
+            <Ionicons name="location-outline" size={12} color={appColors.muted} />
+            <Text style={styles.cardMeta} numberOfLines={1}>{area}</Text>
+            <Text style={styles.dotSep}>·</Text>
+            <Text style={styles.cardMeta}>{reviews} reviews</Text>
           </View>
 
-          {/* Classes taught */}
-          {item.teaches && item.teaches.length > 0 && (
-            <View style={styles.classesRow}>
-              {item.teaches.slice(0, 3).map((cls: string) => (
-                <View key={cls} style={styles.classPill}>
-                  <Text style={styles.classPillText}>{cls}</Text>
+          {/* Row 4: class tags */}
+          {teaches.length > 0 && (
+            <View style={styles.cardTagsRow}>
+              {teaches.slice(0, 3).map((cls: string) => (
+                <View key={cls} style={styles.classTag}>
+                  <Text style={styles.classTagText}>{cls}</Text>
                 </View>
               ))}
-              {item.teaches.length > 3 && (
-                <View style={styles.classPill}>
-                  <Text style={styles.classPillText}>
-                    +{item.teaches.length - 3}
-                  </Text>
-                </View>
+              {teaches.length > 3 && (
+                <Text style={styles.moreTagsText}>+{teaches.length - 3}</Text>
               )}
             </View>
           )}
 
-          {/* Days available */}
-          <View style={styles.daysRow}>
-            <Ionicons
-              name="calendar-outline"
-              size={11}
-              color={appColors.muted}
-            />
-            <Text style={styles.daysText}>{dayInitials}</Text>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.cardDivider} />
-
-          {/* CTA */}
-          <TouchableOpacity
-            style={styles.demoBtn}
-            activeOpacity={0.85}
-            onPress={() => router.push(`/teacher/${item._id}`)}
-          >
-            <LinearGradient
-              colors={[appColors.gold, "#D4922A"]}
-              style={styles.demoBtnGrad}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+          {/* Row 5: fee + book button */}
+          <View style={[styles.cardRow, { marginTop: 4 }]}>
+            <View>
+              <Text style={styles.feeText}>{fee}<Text style={styles.feeUnit}>/session</Text></Text>
+            </View>
+            <TouchableOpacity
+              style={styles.bookBtn}
+              onPress={() => router.push(`/teacher/${item._id}`)}
+              activeOpacity={0.85}
             >
-              <Text style={styles.demoBtnText}>Request Demo</Text>
-              <Ionicons name="arrow-forward" size={13} color={appColors.navy} />
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={[appColors.gold, "#D4922A"]}
+                style={styles.bookBtnGrad}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.bookBtnText}>Book Demo</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -992,8 +918,7 @@ export default function HomeScreen() {
             colors={[appColors.gold]}
           />
         }
-        numColumns={2}
-        columnWrapperStyle={styles.columnWrapper}
+
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false },
@@ -1446,199 +1371,173 @@ const styles = StyleSheet.create({
   chipTextActive: { color: appColors.white, fontFamily: "Manrope_600SemiBold" },
 
   // ── TEACHER CARD (redesigned) ──
-  columnWrapper: { paddingHorizontal: 16, justifyContent: "space-between" },
-  cardWrap: { width: CARD_WIDTH, marginBottom: 16 },
+  cardWrap: { marginHorizontal: 16, marginBottom: 12 },
   teacherCard: {
     backgroundColor: appColors.white,
     borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 14,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0D1B2A",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.07,
+        shadowRadius: 12,
+      },
+      android: { elevation: 3 },
+    }),
+  },
+
+  // Avatar column
+  cardAvatarCol: { position: "relative", flexShrink: 0 },
+  cardAvatarWrap: {
+    width: 72,
+    height: 82,
+    borderRadius: 16,
     overflow: "hidden",
-    shadowColor: appColors.navy,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 5,
+    borderWidth: 2,
+    borderColor: "rgba(232,168,56,0.25)",
   },
-
-  // Photo
-  cardImageWrap: { height: 130, position: "relative" },
-  cardImage: { width: "100%", height: "100%" },
-  imageGradient: {
+  cardAvatar: { width: "100%", height: "100%" },
+  onlineDot: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
+    bottom: 4,
+    right: -3,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: appColors.white,
   },
+  onlineDotOn: { backgroundColor: "#10B981" },
+  onlineDotOff: { backgroundColor: "#9CA3AF" },
 
-  // Availability badge — top left
-  availBadge: {
-    position: "absolute",
-    top: 9,
-    left: 9,
+  // Info column
+  cardInfo: { flex: 1, gap: 6 },
+
+  cardRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 8,
+    justifyContent: "space-between",
+    gap: 6,
   },
-  availBadgeOn: { backgroundColor: "rgba(39,174,96,0.88)" },
-  availBadgeOff: { backgroundColor: "rgba(13,27,42,0.65)" },
-  availDot: { width: 5, height: 5, borderRadius: 3 },
-  availText: {
-    fontSize: 9,
+  cardName: {
+    fontSize: 15,
     fontFamily: "Manrope_700Bold",
-    color: appColors.white,
-    letterSpacing: 0.3,
+    color: appColors.ink,
+    flex: 1,
+    letterSpacing: -0.2,
   },
 
-  // Rating — top right
-  ratingBadge: {
-    position: "absolute",
-    top: 9,
-    right: 9,
+  // Rating chip
+  ratingChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(13,27,42,0.80)",
+    backgroundColor: "rgba(232,168,56,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(232,168,56,0.25)",
     paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    flexShrink: 0,
   },
-  ratingText: {
+  ratingChipText: {
     fontSize: 11,
     fontFamily: "Manrope_700Bold",
     color: appColors.gold,
   },
 
-  // Subject pill — bottom of image
-  subjectPill: {
-    position: "absolute",
-    bottom: 9,
-    left: 9,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(232,168,56,0.92)",
-    paddingHorizontal: 8,
+  // Subject tag
+  subjectTag: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 20,
+    paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 7,
+    flexShrink: 1,
+    maxWidth: "55%",
   },
-  subjectPillText: {
-    fontSize: 9,
-    fontFamily: "Manrope_700Bold",
-    color: appColors.navy,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-
-  // Body
-  cardBody: { padding: 11 },
-
-  nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 5,
-  },
-  cardName: {
-    fontSize: 13,
-    fontFamily: "Manrope_700Bold",
-    color: appColors.ink,
-    flex: 1,
-  },
-  boardBadge: {
-    backgroundColor: appColors.goldPale,
-    borderRadius: 5,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    marginLeft: 4,
-    borderWidth: 1,
-    borderColor: appColors.goldBorder,
-  },
-  boardText: {
-    fontSize: 8,
-    fontFamily: "Manrope_700Bold",
-    color: appColors.gold,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    marginBottom: 4,
-  },
-  infoText: {
-    fontSize: 10,
-    fontFamily: "Manrope_400Regular",
-    color: appColors.muted,
-    flex: 1,
-  },
-  infoDivider: {
-    width: 1,
-    height: 10,
-    backgroundColor: appColors.border,
-    marginHorizontal: 3,
-  },
-
-  // Class pills
-  classesRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-    marginBottom: 5,
-  },
-  classPill: {
-    backgroundColor: "#EEF2F8",
-    borderRadius: 5,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  classPillText: {
-    fontSize: 9,
+  subjectTagText: {
+    fontSize: 11,
     fontFamily: "Manrope_600SemiBold",
-    color: appColors.muted,
+    color: "#6366F1",
   },
-
-  // Days
-  daysRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 8,
-  },
-  daysText: {
-    fontSize: 10,
+  expText: {
+    fontSize: 11,
     fontFamily: "Manrope_500Medium",
     color: appColors.muted,
+    flexShrink: 0,
   },
 
-  cardDivider: {
-    height: 1,
-    backgroundColor: appColors.border,
-    marginBottom: 9,
+  // Meta row (location · reviews)
+  cardMeta: {
+    fontSize: 11,
+    fontFamily: "Manrope_400Regular",
+    color: appColors.muted,
+    flexShrink: 1,
+  },
+  dotSep: {
+    fontSize: 11,
+    color: "#D1D5DB",
+    marginHorizontal: 2,
   },
 
-  // Demo CTA
-  demoBtn: {
-    borderRadius: 10,
-    overflow: "hidden",
-    shadowColor: appColors.gold,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  demoBtnGrad: {
+  // Class tags
+  cardTagsRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 9,
+    flexWrap: "wrap",
     gap: 5,
   },
-  demoBtnText: {
+  classTag: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 20,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  classTagText: {
+    fontSize: 10,
+    fontFamily: "Manrope_600SemiBold",
+    color: "#475569",
+  },
+  moreTagsText: {
+    fontSize: 10,
+    fontFamily: "Manrope_600SemiBold",
+    color: appColors.gold,
+    alignSelf: "center",
+  },
+
+  // Fee + book
+  feeText: {
+    fontSize: 15,
+    fontFamily: "Manrope_800ExtraBold",
+    color: appColors.ink,
+  },
+  feeUnit: {
+    fontSize: 11,
+    fontFamily: "Manrope_400Regular",
+    color: appColors.muted,
+  },
+  bookBtn: {
+    borderRadius: 10,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: { shadowColor: appColors.gold, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6 },
+      android: { elevation: 3 },
+    }),
+  },
+  bookBtnGrad: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bookBtnText: {
     fontSize: 12,
     fontFamily: "Manrope_700Bold",
     color: appColors.navy,

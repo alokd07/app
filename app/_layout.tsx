@@ -81,7 +81,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar backgroundColor={colors.primary} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <Stack
         screenOptions={{
           header: (props) => <CentralizedHeader {...props} />,
@@ -165,6 +165,12 @@ export default function RootLayout() {
           name="learning-progress"
           options={{
             title: "Learning Progress",
+          }}
+        />
+        <Stack.Screen
+          name="profile"
+          options={{
+            headerShown: false,
           }}
         />
       </Stack>
