@@ -1,9 +1,9 @@
-// ─── LearnCraft Theme (Teal/Green Learning Platform) ──────────────────────────
+// ─── LearnCraft Theme (Gold/Navy Learning Platform) ──────────────────────────
 export const colors = {
-  // Primary teal/green
-  primary: "#5A9B8E",
-  primaryDark: "#4A8A7D",
-  primaryLight: "#6AABA0",
+  // Primary navy
+  primary: "#0D1B2A",
+  primaryDark: "#020817",
+  primaryLight: "#1A3050",
 
   // Neutrals
   white: "#FFFFFF",
@@ -47,13 +47,14 @@ export const colors = {
 
 // Shared color tokens for app screens (app/*)
 export const appColors = {
-  navy: "#0D1B2A",
-  navyMid: "#112236",
-  navyLight: "#1A3050",
-  navyCard: "#142840",
-  midnight: "#020817",
+  navy: colors.primary,
+  navyMid: colors.primaryLight,
+  navyLight: "#243B53",
+  navyCard: "#112236",
+  midnight: colors.primaryDark,
   midnightMid: "#0F172A",
 
+  // Gold accents for highlighted actions and emphasis.
   gold: "#E8A838",
   goldLight: "#F2C26A",
   goldDark: "#D4922A",
@@ -62,49 +63,49 @@ export const appColors = {
   goldSoft: "rgba(232,168,56,0.15)",
   goldBorder: "rgba(232,168,56,0.30)",
 
-  cream: "#FAF7F2",
-  white: "#FFFFFF",
-  black: "#000000",
-  ink: "#0D1B2A",
+  cream: colors.background,
+  white: colors.white,
+  black: colors.black,
+  ink: colors.text.primary,
 
-  muted: "#8A9BB0",
-  mutedDark: "#5A7080",
-  mutedSlate: "#64748B",
-  mutedBg: "rgba(138,155,176,0.14)",
+  muted: colors.text.hint,
+  mutedDark: colors.text.secondary,
+  mutedSlate: colors.gray[600],
+  mutedBg: "rgba(108,117,125,0.14)",
 
-  border: "#E4EAF2",
-  borderSoft: "#D9E2EE",
-  borderSlate: "#E2E8F0",
-  inputBg: "#F4F7FB",
-  cardTint: "#EEF2F8",
+  border: colors.gray[200],
+  borderSoft: colors.gray[300],
+  borderSlate: colors.gray[200],
+  inputBg: colors.gray[100],
+  cardTint: colors.gray[50],
 
-  success: "#27AE60",
-  successAlt: "#10B981",
-  successPale: "rgba(39,174,96,0.10)",
-  successBorder: "rgba(39,174,96,0.25)",
+  success: colors.success,
+  successAlt: "#20A070",
+  successPale: "rgba(40,167,69,0.10)",
+  successBorder: "rgba(40,167,69,0.25)",
 
-  error: "#E05252",
-  errorAlt: "#EF4444",
-  errorPale: "rgba(224,82,82,0.10)",
-  errorBorder: "rgba(224,82,82,0.25)",
+  error: colors.error,
+  errorAlt: "#C9303E",
+  errorPale: "rgba(220,53,69,0.10)",
+  errorBorder: "rgba(220,53,69,0.25)",
 
-  warning: "#F59E0B",
-  warningPale: "rgba(245,158,11,0.10)",
-  warningBorder: "rgba(245,158,11,0.25)",
-  warningBorderSoft: "rgba(245,158,11,0.22)",
+  warning: colors.warning,
+  warningPale: "rgba(255,193,7,0.10)",
+  warningBorder: "rgba(255,193,7,0.25)",
+  warningBorderSoft: "rgba(255,193,7,0.22)",
 
-  info: "#3B82F6",
-  infoLight: "#4DA6FF",
-  infoPale: "rgba(59,130,246,0.10)",
-  infoBorder: "rgba(59,130,246,0.20)",
+  info: colors.info,
+  infoLight: "#4BB5C6",
+  infoPale: "rgba(23,162,184,0.10)",
+  infoBorder: "rgba(23,162,184,0.20)",
 
-  purple: "#8B5CF6",
-  purplePale: "rgba(139,92,246,0.10)",
-  purpleBorder: "rgba(139,92,246,0.25)",
+  purple: colors.primaryLight,
+  purplePale: "rgba(26,48,80,0.10)",
+  purpleBorder: "rgba(26,48,80,0.25)",
 
-  glass: "rgba(255,255,255,0.06)",
-  glassStrong: "rgba(255,255,255,0.05)",
-  whiteMuted: "rgba(255,255,255,0.5)",
+  glass: "rgba(255,255,255,0.28)",
+  glassStrong: "rgba(255,255,255,0.42)",
+  whiteMuted: "rgba(255,255,255,0.65)",
   whatsapp: "#25D366",
 };
 
@@ -113,20 +114,24 @@ export const splashColors = {
     950: "#010409",
     900: "#020817",
     850: "#0A1120",
-    800: "#0F172A",
-    700: "#1E293B",
+    800: "#0D1B2A",
+    700: "#1A3050",
   },
   gold: {
-    DEFAULT: "#E8A838",
-    light: "#F4C566",
-    dark: "#B47C1C",
-    glow: "rgba(232, 168, 56, 0.35)",
-    gradient: ["#F4C566", "#E8A838", "#B47C1C"] as const,
+    DEFAULT: appColors.gold,
+    light: appColors.goldLight,
+    dark: appColors.goldDark,
+    glow: "rgba(232,168,56,0.35)",
+    gradient: [
+      appColors.goldLight,
+      appColors.gold,
+      appColors.goldDark,
+    ] as const,
   },
-  white: "#FFFFFF",
-  muted: "rgba(255, 255, 255, 0.5)",
-  subtle: "rgba(255, 255, 255, 0.1)",
-  accent: "rgba(232, 168, 56, 0.15)",
+  white: colors.white,
+  muted: "rgba(255, 255, 255, 0.72)",
+  subtle: "rgba(255, 255, 255, 0.14)",
+  accent: "rgba(232,168,56,0.15)",
 };
 
 // ─── Typography (Manrope) ─────────────────────────────────────────────────────

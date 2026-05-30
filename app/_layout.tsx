@@ -1,6 +1,12 @@
 import React, { useEffect } from "react";
 import { Stack } from "expo-router";
-import { View, ActivityIndicator, StatusBar } from "react-native";
+import {
+  View,
+  ActivityIndicator,
+  StatusBar,
+  Text,
+  TextInput,
+} from "react-native";
 import {
   useFonts,
   Manrope_400Regular,
@@ -37,6 +43,27 @@ export default function RootLayout() {
     hydrateUser();
   }, [hydrateUser]);
 
+  useEffect(() => {
+    const textAny = Text as unknown as {
+      defaultProps?: { style?: { fontFamily?: string } };
+    };
+    const inputAny = TextInput as unknown as {
+      defaultProps?: { style?: { fontFamily?: string } };
+    };
+
+    textAny.defaultProps = textAny.defaultProps || {};
+    inputAny.defaultProps = inputAny.defaultProps || {};
+
+    textAny.defaultProps.style = [
+      textAny.defaultProps.style,
+      { fontFamily: "Manrope_400Regular" },
+    ];
+    inputAny.defaultProps.style = [
+      inputAny.defaultProps.style,
+      { fontFamily: "Manrope_400Regular" },
+    ];
+  }, []);
+
   if (!fontsLoaded) {
     return (
       <View
@@ -44,7 +71,7 @@ export default function RootLayout() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: colors.white,
+          backgroundColor: colors.background,
         }}
       >
         <ActivityIndicator size="large" color={colors.primary} />
@@ -58,7 +85,7 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           header: (props) => <CentralizedHeader {...props} />,
-          contentStyle: { backgroundColor: colors.white },
+          contentStyle: { backgroundColor: colors.background },
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
