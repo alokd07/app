@@ -8,107 +8,107 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Platform,
+  Dimensions,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Calendar } from "react-native-calendars";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import apiClient from "../src/services/api";
 import { API_CONFIG } from "../src/config/api";
 import { formatTime, formatCurrency, formatDate } from "../src/utils/helpers";
-import { appColors } from "../src/theme/colors";
+import { appColors, fonts } from "../src/theme/colors";
 
+const { width: SW } = Dimensions.get("window");
 const P = appColors;
 
-// ─── Sample fallback data ──────────────────────────────────────────────────────
+// ─── Fallback ──────────────────────────────────────────────────────────────────
 const SAMPLE_TEACHER = {
   _id: "t1",
   name: "Ananya Sharma",
   pricePerHour: 600,
+  subjects: ["Mathematics", "Physics"],
   availability: [
     {
-      // date: new Date().toISOString().split("T")[0],
-      date: "2026-04-20",
+      date: new Date().toISOString().split("T")[0],
       slots: [
         { startTime: "09:00", endTime: "10:00", isBooked: false },
         { startTime: "11:00", endTime: "12:00", isBooked: true },
         { startTime: "14:00", endTime: "15:00", isBooked: false },
         { startTime: "16:00", endTime: "17:00", isBooked: false },
+        { startTime: "18:00", endTime: "19:00", isBooked: false },
       ],
     },
   ],
 };
 
-// ─── Atoms ─────────────────────────────────────────────────────────────────────
-function SectionCard({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: any;
-  children: React.ReactNode;
+// ─── Step indicator ────────────────────────────────────────────────────────────
+const STEPS = ["Date", "Time", "Mode", "Confirm"];
+
+function StepBar({ current }: { current: number }) {
+  return (
+    <View style={sb.wrap}>
+      {STEPS.map((label, i) => {
+        const done = i < current;
+        const active = i === current;
+        return (
+          <React.Fragment key={label}>
+            <View style={sb.item}>
+              <View style={[sb.dot, done && sb.dotDone, active && sb.dotActive]}>
+                {done ? (
+                  <Ionicons name="checkmark" size={12} color="#fff" />
+                ) : (
+                  <Text style={[sb.dotNum, active && sb.dotNumActive]}>{i + 1}</Text>
+                )}
+              </View>
+              <Text style={[sb.label, (active || done) && sb.labelActive]}>{label}</Text>
+            </View>
+            {i < STEPS.length - 1 && (
+              <View style={[sb.line, done && sb.lineDone]} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── Section card ──────────────────────────────────────────────────────────────
+function SectionCard({ title, icon, children, step }: {
+  title: string; icon: any; children: React.ReactNode; step: number;
 }) {
   return (
-    <View style={card.wrap}>
-      <View style={card.header}>
-        <View style={card.iconBox}>
-          <Ionicons name={icon} size={13} color={P.gold} />
+    <View style={sc.wrap}>
+      <View style={sc.head}>
+        <View style={sc.stepBadge}>
+          <Text style={sc.stepNum}>{step}</Text>
         </View>
-        <Text style={card.title}>{title}</Text>
+        <View style={sc.iconBox}>
+          <Ionicons name={icon} size={14} color={P.gold} />
+        </View>
+        <Text style={sc.title}>{title}</Text>
       </View>
-      <View style={card.body}>{children}</View>
+      <View style={sc.body}>{children}</View>
     </View>
   );
 }
 
-function SummaryRow({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
+// ─── Summary row ───────────────────────────────────────────────────────────────
+function SumRow({ icon, label, value, gold }: { icon: any; label: string; value: string; gold?: boolean }) {
   return (
-    <View style={sum.row}>
-      <Text style={sum.label}>{label}</Text>
-      <Text style={[sum.value, highlight && sum.valueHighlight]}>{value}</Text>
+    <View style={sr.row}>
+      <View style={sr.iconWrap}>
+        <Ionicons name={icon} size={13} color={gold ? P.gold : P.muted} />
+      </View>
+      <Text style={sr.label}>{label}</Text>
+      <Text style={[sr.value, gold && sr.valueGold]}>{value}</Text>
     </View>
   );
 }
 
-function PressBtn({ onPress, children, style }: any) {
-  const scale = useRef(new Animated.Value(1)).current;
-  return (
-    <Animated.View style={[{ transform: [{ scale }] }, style]}>
-      <TouchableOpacity
-        onPressIn={() =>
-          Animated.spring(scale, {
-            toValue: 0.97,
-            useNativeDriver: true,
-            speed: 60,
-          }).start()
-        }
-        onPressOut={() =>
-          Animated.spring(scale, {
-            toValue: 1,
-            useNativeDriver: true,
-            speed: 60,
-          }).start()
-        }
-        onPress={onPress}
-        activeOpacity={1}
-      >
-        {children}
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-
-// ─── Screen ────────────────────────────────────────────────────────────────────
+// ─── Main screen ───────────────────────────────────────────────────────────────
 export default function BookSessionScreen() {
   const { teacherId } = useLocalSearchParams<{ teacherId: string }>();
   const [teacher, setTeacher] = useState<any | null>(null);
@@ -118,13 +118,16 @@ export default function BookSessionScreen() {
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<any[]>([]);
+  const insets = useSafeAreaInsets();
+
+  // Which step are we on (0-indexed): 0=pick date, 1=pick slot, 2=pick mode, 3=confirm
+  const currentStep = !selectedDate ? 0 : !selectedSlot ? 1 : mode === null ? 2 : 3;
 
   const fetchTeacher = useCallback(async () => {
     try {
-      const res = await apiClient.get(
-        API_CONFIG.ENDPOINTS.TEACHER_DETAIL(teacherId),
-      );
-      if (res.data.data) setTeacher(res.data.data);
+      const res = await apiClient.get(API_CONFIG.ENDPOINTS.TEACHER_DETAIL(teacherId));
+      if (res.data?.data) setTeacher(res.data.data);
+      else setTeacher(SAMPLE_TEACHER);
     } catch {
       setTeacher(SAMPLE_TEACHER);
     } finally {
@@ -132,14 +135,11 @@ export default function BookSessionScreen() {
     }
   }, [teacherId]);
 
-  useEffect(() => {
-    fetchTeacher();
-  }, [fetchTeacher]);
+  useEffect(() => { fetchTeacher(); }, [fetchTeacher]);
+
   useEffect(() => {
     if (selectedDate && teacher?.availability) {
-      const day = teacher.availability.find(
-        (a: any) => a.date === selectedDate,
-      );
+      const day = teacher.availability.find((a: any) => a.date === selectedDate);
       setAvailableSlots(day?.slots || []);
       setSelectedSlot(null);
     }
@@ -147,10 +147,9 @@ export default function BookSessionScreen() {
 
   const handleBook = async () => {
     if (!selectedDate || !selectedSlot) {
-      Alert.alert("Missing info", "Please select a date and time slot");
+      Alert.alert("Missing info", "Please select a date and time slot.");
       return;
     }
-
     setBooking(true);
     try {
       const res = await apiClient.post(API_CONFIG.ENDPOINTS.BOOKINGS, {
@@ -159,17 +158,11 @@ export default function BookSessionScreen() {
         appointmentTime: selectedSlot,
         mode,
       });
-      console.log("Booking response:", res);
       if (res.status === 201) {
         const b = res.data?.data || res.data;
         const bookingId = b?._id;
-        const payableAmount =
-          b?.advancePaid ?? b?.amount ?? teacher?.pricePerHour ?? 0;
-
-        if (!bookingId) {
-          throw new Error("Booking created but booking id was missing");
-        }
-
+        const payableAmount = b?.advancePaid ?? b?.amount ?? teacher?.pricePerHour ?? 0;
+        if (!bookingId) throw new Error("Booking created but booking id was missing");
         router.push({
           pathname: "/payment",
           params: {
@@ -182,10 +175,7 @@ export default function BookSessionScreen() {
         });
       }
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        e.response?.data?.message || e.message || "Failed to create booking",
-      );
+      Alert.alert("Error", e.response?.data?.message || e.message || "Failed to create booking");
     } finally {
       setBooking(false);
     }
@@ -193,21 +183,18 @@ export default function BookSessionScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={{
-          flex: 1,
-          backgroundColor: P.cream,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
+      <View style={{ flex: 1, backgroundColor: "#F5F6FA", alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator size="large" color={P.gold} />
-      </SafeAreaView>
+        <Text style={{ marginTop: 12, fontFamily: fonts.medium, fontSize: 13, color: P.muted }}>
+          Loading…
+        </Text>
+      </View>
     );
   }
 
-  // Marked dates for calendar
   const today = new Date().toISOString().split("T")[0];
+
+  // Build marked dates
   const markedDates: any = {};
   (teacher?.availability || []).forEach((a: any) => {
     markedDates[a.date] = {
@@ -221,565 +208,548 @@ export default function BookSessionScreen() {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-        {/* ── Hero banner ── */}
-        <LinearGradient colors={[P.navy, P.navyMid]} style={styles.heroBanner}>
-          <View style={styles.heroOrb} />
-          <View style={styles.heroLeft}>
-            <Text style={styles.heroEyebrow}>Booking with</Text>
-            <Text style={styles.heroName}>{teacher?.name}</Text>
-          </View>
-          <View style={styles.heroPriceChip}>
-            <Text style={styles.heroPriceAmount}>
-              {formatCurrency(teacher?.pricePerHour || 0)}
-            </Text>
-            <Text style={styles.heroPriceLabel}>/hr</Text>
-          </View>
-        </LinearGradient>
 
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* ── Step 1: Date ── */}
-          <SectionCard title="Select Date" icon="calendar-outline">
-            <Calendar
-              current={today}
-              minDate={today}
-              onDayPress={(day: any) => {
-                setSelectedDate(day.dateString);
-                setSelectedSlot(null);
-              }}
-              markedDates={markedDates}
-              style={{ borderRadius: 12, overflow: "hidden" }}
-              theme={{
-                backgroundColor: P.white,
-                calendarBackground: P.white,
-                todayTextColor: P.gold,
-                todayBackgroundColor: P.goldDim,
-                selectedDayBackgroundColor: P.navy,
-                selectedDayTextColor: P.white,
-                arrowColor: P.gold,
-                dotColor: P.gold,
-                textDayFontFamily: "Manrope_500Medium",
-                textMonthFontFamily: "Manrope_700Bold",
-                textDayHeaderFontFamily: "Manrope_600SemiBold",
-                textDayFontSize: 13,
-                textMonthFontSize: 14,
-                textDayHeaderFontSize: 11,
-                dayTextColor: P.ink,
-                textDisabledColor: P.muted,
-                monthTextColor: P.ink,
-              }}
-            />
-          </SectionCard>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: 140 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* ── Teacher mini-card ── */}
+        <View style={styles.teacherCard}>
+          <LinearGradient
+            colors={[P.navy, P.navyMid]}
+            style={styles.teacherCardGrad}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.tcDecor} />
+            <View style={styles.tcDecor2} />
+            <View style={styles.tcLeft}>
+              <View style={styles.tcAvatar}>
+                <Text style={styles.tcAvatarText}>
+                  {teacher?.name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+                </Text>
+              </View>
+              <View>
+                <Text style={styles.tcEyebrow}>Booking with</Text>
+                <Text style={styles.tcName}>{teacher?.name}</Text>
+                {teacher?.subjects?.length > 0 && (
+                  <Text style={styles.tcSubject}>{teacher.subjects.slice(0, 2).join(" · ")}</Text>
+                )}
+              </View>
+            </View>
+            <View style={styles.tcPriceBox}>
+              <Text style={styles.tcPriceAmt}>{formatCurrency(teacher?.pricePerHour || 0)}</Text>
+              <Text style={styles.tcPriceLbl}>per hour</Text>
+            </View>
+          </LinearGradient>
+        </View>
 
-          {/* ── Step 2: Time Slots ── */}
+        {/* ── Step bar ── */}
+        <StepBar current={currentStep} />
+
+        {/* ── Step 1: Date ── */}
+        <SectionCard title="Choose a Date" icon="calendar-outline" step={1}>
+          <Calendar
+            current={today}
+            minDate={today}
+            onDayPress={(day: any) => {
+              setSelectedDate(day.dateString);
+              setSelectedSlot(null);
+            }}
+            markedDates={markedDates}
+            style={{ borderRadius: 0, overflow: "hidden" }}
+            theme={{
+              backgroundColor: "transparent",
+              calendarBackground: "transparent",
+              todayTextColor: P.gold,
+              todayBackgroundColor: "rgba(232,168,56,0.1)",
+              selectedDayBackgroundColor: P.navy,
+              selectedDayTextColor: "#fff",
+              arrowColor: P.gold,
+              dotColor: P.gold,
+              textDayFontFamily: fonts.medium,
+              textMonthFontFamily: fonts.bold,
+              textDayHeaderFontFamily: fonts.semiBold,
+              textDayFontSize: 13,
+              textMonthFontSize: 14,
+              textDayHeaderFontSize: 11,
+              dayTextColor: P.ink,
+              textDisabledColor: "#CBD5E1",
+              monthTextColor: P.ink,
+            }}
+          />
           {selectedDate && (
-            <SectionCard title="Available Time Slots" icon="time-outline">
-              {availableSlots.length === 0 ? (
-                <View style={styles.emptySlots}>
-                  <Ionicons name="calendar-outline" size={28} color={P.muted} />
-                  <Text style={styles.emptySlotsText}>
-                    No slots available for this date
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.slotsGrid}>
-                  {availableSlots.map((slot: any, i: number) => {
-                    const isSelected = selectedSlot === slot;
-                    const isBooked = slot.isBooked;
-                    return (
-                      <TouchableOpacity
-                        key={i}
-                        onPress={() => !isBooked && setSelectedSlot(slot)}
-                        disabled={isBooked}
-                        activeOpacity={0.8}
-                        style={[
-                          styles.slotChip,
-                          isBooked && styles.slotChipBooked,
-                          isSelected && styles.slotChipSelected,
-                        ]}
-                      >
-                        {isSelected && (
-                          <Ionicons
-                            name="checkmark"
-                            size={11}
-                            color={P.navy}
-                            style={{ marginRight: 4 }}
-                          />
-                        )}
-                        <Text
-                          style={[
-                            styles.slotChipText,
-                            isBooked && styles.slotChipTextBooked,
-                            isSelected && styles.slotChipTextSelected,
-                          ]}
-                        >
-                          {formatTime(slot.startTime)} –{" "}
-                          {formatTime(slot.endTime)}
-                        </Text>
-                        {isBooked && (
-                          <View style={styles.slotBookedBadge}>
-                            <Text style={styles.slotBookedBadgeText}>Full</Text>
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </SectionCard>
+            <View style={styles.selectedDateBanner}>
+              <Ionicons name="checkmark-circle" size={15} color={P.gold} />
+              <Text style={styles.selectedDateText}>
+                {formatDate(selectedDate)} selected
+              </Text>
+            </View>
           )}
+        </SectionCard>
 
-          {/* ── Step 3: Mode ── */}
-          {selectedSlot && (
-            <SectionCard title="Session Mode" icon="options-outline">
-              <View style={styles.modeRow}>
-                {(["online", "in-person"] as const).map((m) => {
-                  const active = mode === m;
+        {/* ── Step 2: Time slot ── */}
+        {selectedDate && (
+          <SectionCard title="Pick a Time Slot" icon="time-outline" step={2}>
+            {availableSlots.length === 0 ? (
+              <View style={styles.emptySlots}>
+                <View style={styles.emptySlotIcon}>
+                  <Ionicons name="calendar-outline" size={26} color={P.muted} />
+                </View>
+                <Text style={styles.emptySlotsTitle}>No slots available</Text>
+                <Text style={styles.emptySlotsText}>
+                  Try selecting a different date
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.slotsGrid}>
+                {availableSlots.map((slot: any, i: number) => {
+                  const isSelected = selectedSlot === slot;
+                  const isBooked = slot.isBooked;
                   return (
-                    <PressBtn
-                      key={m}
-                      onPress={() => setMode(m)}
-                      style={{ flex: 1 }}
+                    <TouchableOpacity
+                      key={i}
+                      onPress={() => !isBooked && setSelectedSlot(slot)}
+                      disabled={isBooked}
+                      activeOpacity={0.8}
+                      style={[
+                        styles.slotPill,
+                        isBooked && styles.slotPillBooked,
+                        isSelected && styles.slotPillSelected,
+                      ]}
                     >
-                      <View
-                        style={[
-                          styles.modeCard,
-                          active && styles.modeCardActive,
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.modeIconBox,
-                            active && styles.modeIconBoxActive,
-                          ]}
-                        >
-                          <Ionicons
-                            name={m === "online" ? "videocam" : "location"}
-                            size={18}
-                            color={active ? P.navy : P.muted}
-                          />
+                      <Ionicons
+                        name={isSelected ? "checkmark-circle" : isBooked ? "close-circle-outline" : "time-outline"}
+                        size={13}
+                        color={isSelected ? P.navy : isBooked ? "#CBD5E1" : P.muted}
+                        style={{ marginRight: 5 }}
+                      />
+                      <Text style={[
+                        styles.slotPillText,
+                        isBooked && styles.slotPillTextBooked,
+                        isSelected && styles.slotPillTextSelected,
+                      ]}>
+                        {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
+                      </Text>
+                      {isBooked && (
+                        <View style={styles.bookedBadge}>
+                          <Text style={styles.bookedBadgeText}>Full</Text>
                         </View>
-                        <Text
-                          style={[
-                            styles.modeLabel,
-                            active && styles.modeLabelActive,
-                          ]}
-                        >
-                          {m === "online" ? "Online" : "In-person"}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.modeSub,
-                            active && { color: P.mutedDark },
-                          ]}
-                        >
-                          {m === "online"
-                            ? "Via video call"
-                            : "At your location"}
-                        </Text>
-                        {active && (
-                          <View style={styles.modeCheck}>
-                            <Ionicons
-                              name="checkmark"
-                              size={11}
-                              color={P.navy}
-                            />
-                          </View>
-                        )}
-                      </View>
-                    </PressBtn>
+                      )}
+                    </TouchableOpacity>
                   );
                 })}
               </View>
-            </SectionCard>
-          )}
+            )}
+          </SectionCard>
+        )}
 
-          {/* ── Booking Summary ── */}
-          {readyToBook && (
-            <View style={styles.summaryCard}>
-              {/* Gold accent line */}
-              <LinearGradient
-                colors={[P.gold, "transparent"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.summaryAccent}
-              />
-              <View style={styles.summaryHeader}>
-                <View style={styles.summaryIconBox}>
-                  <Ionicons name="receipt-outline" size={13} color={P.gold} />
-                </View>
-                <Text style={styles.summaryTitle}>Booking Summary</Text>
+        {/* ── Step 3: Mode ── */}
+        {selectedSlot && (
+          <SectionCard title="Session Mode" icon="options-outline" step={3}>
+            <View style={styles.modeRow}>
+              {(["online", "in-person"] as const).map((m) => {
+                const active = mode === m;
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    onPress={() => setMode(m)}
+                    activeOpacity={0.85}
+                    style={[styles.modeCard, active && styles.modeCardActive]}
+                  >
+                    {active && (
+                      <View style={styles.modeCheckBadge}>
+                        <Ionicons name="checkmark" size={10} color="#fff" />
+                      </View>
+                    )}
+                    <LinearGradient
+                      colors={active ? [P.gold, "#D4922A"] : ["#F8FAFC", "#F1F5F9"]}
+                      style={styles.modeIconBox}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    >
+                      <Ionicons
+                        name={m === "online" ? "videocam" : "location"}
+                        size={20}
+                        color={active ? P.navy : P.muted}
+                      />
+                    </LinearGradient>
+                    <Text style={[styles.modeLabel, active && styles.modeLabelActive]}>
+                      {m === "online" ? "Online" : "In-person"}
+                    </Text>
+                    <Text style={[styles.modeSub, active && styles.modeSubActive]}>
+                      {m === "online" ? "Video call" : "At your place"}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </SectionCard>
+        )}
+
+        {/* ── Step 4: Booking Summary ── */}
+        {readyToBook && (
+          <View style={styles.summaryCard}>
+            {/* Gold top bar */}
+            <LinearGradient
+              colors={[P.gold, P.goldLight]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={styles.summaryTopBar}
+            />
+            <View style={styles.summaryHead}>
+              <View style={styles.summaryIconBox}>
+                <Ionicons name="receipt-outline" size={14} color={P.gold} />
               </View>
-              <View style={styles.summaryBody}>
-                <SummaryRow label="Teacher" value={teacher?.name || "—"} />
-                <SummaryRow label="Date" value={formatDate(selectedDate)} />
-                <SummaryRow
-                  label="Time"
-                  value={`${formatTime(selectedSlot.startTime)} – ${formatTime(selectedSlot.endTime)}`}
-                />
-                <SummaryRow
-                  label="Mode"
-                  value={mode === "online" ? "Online" : "In-person"}
-                />
-                <View style={styles.summaryDivider} />
-                <SummaryRow
-                  label="Total Amount"
-                  value={formatCurrency(teacher?.pricePerHour || 0)}
-                  highlight
-                />
+              <Text style={styles.summaryTitle}>Booking Summary</Text>
+              <View style={styles.summaryStepBadge}>
+                <Text style={styles.summaryStepText}>Step 4</Text>
               </View>
             </View>
-          )}
 
-          <View style={{ height: 120 }} />
-        </ScrollView>
-
-        {/* ── Footer CTA ── */}
-        {readyToBook && (
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={[styles.ctaBtn, booking && { opacity: 0.65 }]}
-              onPress={handleBook}
-              disabled={booking}
-              activeOpacity={0.88}
-            >
-              <LinearGradient
-                colors={[P.gold, P.goldLight]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.ctaBtnInner}
-              >
-                {booking ? (
-                  <ActivityIndicator color={P.navy} />
-                ) : (
-                  <>
-                    <Text style={styles.ctaBtnText}>Proceed to Payment</Text>
-                    <View style={styles.ctaArrow}>
-                      <Ionicons name="arrow-forward" size={14} color={P.navy} />
-                    </View>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+            <View style={styles.summaryBody}>
+              <SumRow icon="person-outline" label="Teacher" value={teacher?.name || "—"} />
+              <SumRow icon="calendar-outline" label="Date" value={formatDate(selectedDate)} />
+              <SumRow
+                icon="time-outline"
+                label="Time"
+                value={`${formatTime(selectedSlot.startTime)} – ${formatTime(selectedSlot.endTime)}`}
+              />
+              <SumRow
+                icon={mode === "online" ? "videocam-outline" : "location-outline"}
+                label="Mode"
+                value={mode === "online" ? "Online (Video Call)" : "In-person"}
+              />
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryTotal}>
+                <Text style={styles.summaryTotalLabel}>Total Amount</Text>
+                <Text style={styles.summaryTotalValue}>{formatCurrency(teacher?.pricePerHour || 0)}</Text>
+              </View>
+              <View style={styles.summaryNote}>
+                <Ionicons name="shield-checkmark-outline" size={13} color={P.success} />
+                <Text style={styles.summaryNoteText}>Free cancellation up to 24 hours before</Text>
+              </View>
+            </View>
           </View>
         )}
-      </SafeAreaView>
+      </ScrollView>
+
+      {/* ── Sticky footer ── */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {readyToBook ? (
+          <TouchableOpacity
+            onPress={handleBook}
+            disabled={booking}
+            activeOpacity={0.88}
+            style={[styles.ctaBtn, booking && { opacity: 0.65 }]}
+          >
+            <LinearGradient
+              colors={[P.gold, "#D4922A"]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={styles.ctaInner}
+            >
+              {booking ? (
+                <ActivityIndicator color={P.navy} />
+              ) : (
+                <>
+                  <View>
+                    <Text style={styles.ctaLabel}>Proceed to Payment</Text>
+                    <Text style={styles.ctaSub}>{formatCurrency(teacher?.pricePerHour || 0)} · {mode === "online" ? "Online" : "In-person"}</Text>
+                  </View>
+                  <View style={styles.ctaArrow}>
+                    <Ionicons name="arrow-forward" size={16} color={P.navy} />
+                  </View>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.ctaDisabled}>
+            <Ionicons name="calendar-outline" size={16} color={P.muted} />
+            <Text style={styles.ctaDisabledText}>
+              {!selectedDate ? "Select a date to continue" : "Select a time slot to continue"}
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
 
-// ─── Card atom styles ──────────────────────────────────────────────────────────
-const card = StyleSheet.create({
+// ─── Step bar styles ───────────────────────────────────────────────────────────
+const sb = StyleSheet.create({
   wrap: {
-    backgroundColor: P.white,
+    flexDirection: "row",
+    alignItems: "center",
     marginHorizontal: 20,
+    marginBottom: 20,
+    paddingVertical: 6,
+  },
+  item: { alignItems: "center", gap: 4 },
+  dot: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: "#E2E8F0",
+    alignItems: "center", justifyContent: "center",
+  },
+  dotActive: { backgroundColor: P.navy, ...Platform.select({ ios: { shadowColor: P.navy, shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } }, android: { elevation: 3 } }) },
+  dotDone: { backgroundColor: P.success },
+  dotNum: { fontSize: 11, fontFamily: fonts.bold, color: "#94A3B8" },
+  dotNumActive: { color: "#fff" },
+  label: { fontSize: 9, fontFamily: fonts.medium, color: "#94A3B8", textTransform: "uppercase", letterSpacing: 0.5 },
+  labelActive: { color: P.ink },
+  line: { flex: 1, height: 2, backgroundColor: "#E2E8F0", marginBottom: 14, marginHorizontal: 4 },
+  lineDone: { backgroundColor: P.success },
+});
+
+// ─── Section card styles ───────────────────────────────────────────────────────
+const sc = StyleSheet.create({
+  wrap: {
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 16,
     marginBottom: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: "#F1F5F9",
     overflow: "hidden",
-    shadowColor: P.navy,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
+    ...Platform.select({
+      ios: { shadowColor: "#0D1B2A", shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+      android: { elevation: 2 },
+    }),
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: P.border,
+  head: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: "#F8FAFC",
   },
+  stepBadge: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: P.navy,
+    alignItems: "center", justifyContent: "center",
+  },
+  stepNum: { fontSize: 11, fontFamily: fonts.bold, color: "#fff" },
   iconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: P.goldDim,
-    borderWidth: 1,
-    borderColor: P.goldBorder,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 30, height: 30, borderRadius: 9,
+    backgroundColor: "rgba(232,168,56,0.1)",
+    borderWidth: 1, borderColor: "rgba(232,168,56,0.25)",
+    alignItems: "center", justifyContent: "center",
   },
-  title: { fontSize: 13, fontFamily: "Manrope_700Bold", color: P.ink },
+  title: { fontSize: 14, fontFamily: fonts.bold, color: P.ink, flex: 1 },
   body: { padding: 16 },
 });
 
 // ─── Summary row styles ────────────────────────────────────────────────────────
-const sum = StyleSheet.create({
+const sr = StyleSheet.create({
   row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingVertical: 9,
   },
-  label: { fontSize: 13, fontFamily: "Manrope_500Medium", color: P.muted },
-  value: { fontSize: 13, fontFamily: "Manrope_600SemiBold", color: P.ink },
-  valueHighlight: {
-    fontSize: 16,
-    fontFamily: "Manrope_700Bold",
-    color: P.gold,
+  iconWrap: {
+    width: 28, height: 28, borderRadius: 8,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center", justifyContent: "center",
   },
+  label: { flex: 1, fontSize: 13, fontFamily: fonts.medium, color: P.muted },
+  value: { fontSize: 13, fontFamily: fonts.semiBold, color: P.ink },
+  valueGold: { fontSize: 16, fontFamily: fonts.extraBold, color: P.gold },
 });
 
 // ─── Layout styles ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: P.cream },
+  root: { flex: 1, backgroundColor: "#F5F6FA" },
 
   // Nav
   nav: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 10,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 16, paddingBottom: 12,
+    backgroundColor: "#F5F6FA",
   },
   navBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.border,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: P.navy,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1, borderColor: "#F1F5F9",
+    alignItems: "center", justifyContent: "center",
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+      android: { elevation: 2 },
+    }),
   },
-  navTitle: {
-    fontSize: 15,
-    fontFamily: "Manrope_700Bold",
-    color: P.ink,
-    letterSpacing: -0.2,
-  },
+  navTitle: { fontSize: 16, fontFamily: fonts.bold, color: P.ink, letterSpacing: -0.2 },
 
-  // Hero
-  heroBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginHorizontal: 20,
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginBottom: 20,
+  scroll: { paddingTop: 4 },
+
+  // Teacher card
+  teacherCard: {
+    marginHorizontal: 16, marginBottom: 20,
+    borderRadius: 20, overflow: "hidden",
+    ...Platform.select({
+      ios: { shadowColor: P.navy, shadowOpacity: 0.14, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
+      android: { elevation: 5 },
+    }),
+  },
+  teacherCardGrad: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 18, paddingVertical: 18, gap: 14,
     overflow: "hidden",
   },
-  heroOrb: {
-    position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "rgba(232,168,56,0.06)",
-    top: -60,
-    right: -30,
+  tcDecor: {
+    position: "absolute", width: 120, height: 120, borderRadius: 60,
+    backgroundColor: "rgba(232,168,56,0.07)", top: -40, right: 60,
   },
-  heroLeft: {},
-  heroEyebrow: {
-    fontSize: 11,
-    fontFamily: "Manrope_500Medium",
-    color: P.muted,
-    marginBottom: 3,
-    letterSpacing: 0.3,
+  tcDecor2: {
+    position: "absolute", width: 80, height: 80, borderRadius: 40,
+    backgroundColor: "rgba(232,168,56,0.05)", bottom: -30, right: 10,
   },
-  heroName: {
-    fontSize: 18,
-    fontFamily: "Manrope_700Bold",
-    color: P.cream,
-    letterSpacing: -0.3,
+  tcLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 14 },
+  tcAvatar: {
+    width: 48, height: 48, borderRadius: 14,
+    backgroundColor: "rgba(232,168,56,0.18)",
+    borderWidth: 1.5, borderColor: "rgba(232,168,56,0.35)",
+    alignItems: "center", justifyContent: "center",
   },
-  heroPriceChip: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 2,
-    backgroundColor: P.goldDim,
-    borderWidth: 1,
-    borderColor: P.goldBorder,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  heroPriceAmount: {
-    fontSize: 20,
-    fontFamily: "Manrope_700Bold",
-    color: P.gold,
-    letterSpacing: -0.5,
-  },
-  heroPriceLabel: {
-    fontSize: 12,
-    fontFamily: "Manrope_400Regular",
-    color: P.muted,
-  },
+  tcAvatarText: { fontSize: 17, fontFamily: fonts.extraBold, color: P.gold },
+  tcEyebrow: { fontSize: 10, fontFamily: fonts.medium, color: "rgba(255,255,255,0.5)", marginBottom: 2 },
+  tcName: { fontSize: 17, fontFamily: fonts.bold, color: "#FFFFFF", letterSpacing: -0.2 },
+  tcSubject: { fontSize: 11, fontFamily: fonts.medium, color: "rgba(255,255,255,0.5)", marginTop: 2 },
+  tcPriceBox: { alignItems: "flex-end" },
+  tcPriceAmt: { fontSize: 20, fontFamily: fonts.extraBold, color: P.gold, letterSpacing: -0.5 },
+  tcPriceLbl: { fontSize: 10, fontFamily: fonts.medium, color: "rgba(255,255,255,0.45)", marginTop: 1 },
 
-  scroll: { paddingBottom: 24 },
+  // Date selected banner
+  selectedDateBanner: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    marginTop: 12, paddingVertical: 10, paddingHorizontal: 14,
+    backgroundColor: "rgba(232,168,56,0.08)",
+    borderRadius: 12, borderWidth: 1, borderColor: "rgba(232,168,56,0.2)",
+  },
+  selectedDateText: { fontSize: 13, fontFamily: fonts.semiBold, color: P.gold },
 
   // Slots
-  emptySlots: { alignItems: "center", paddingVertical: 24, gap: 8 },
-  emptySlotsText: {
-    fontSize: 13,
-    fontFamily: "Manrope_400Regular",
-    color: P.muted,
-    textAlign: "center",
+  emptySlots: { alignItems: "center", paddingVertical: 28, gap: 8 },
+  emptySlotIcon: {
+    width: 56, height: 56, borderRadius: 16,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center", justifyContent: "center",
+    marginBottom: 4,
   },
-  slotsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  emptySlotsTitle: { fontSize: 15, fontFamily: fonts.bold, color: P.ink },
+  emptySlotsText: { fontSize: 13, fontFamily: fonts.regular, color: P.muted, textAlign: "center" },
 
-  slotChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: P.border,
-    backgroundColor: P.white,
+  slotsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  slotPill: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 14, paddingVertical: 11,
+    borderRadius: 30, borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
   },
-  slotChipSelected: { backgroundColor: P.gold, borderColor: P.gold },
-  slotChipBooked: {
-    backgroundColor: P.inputBg,
-    borderColor: P.border,
-    opacity: 0.55,
+  slotPillSelected: { backgroundColor: P.gold, borderColor: P.gold },
+  slotPillBooked: { backgroundColor: "#F8FAFC", borderColor: "#E2E8F0", opacity: 0.5 },
+  slotPillText: { fontSize: 12, fontFamily: fonts.semiBold, color: P.ink },
+  slotPillTextSelected: { color: P.navy, fontFamily: fonts.bold },
+  slotPillTextBooked: { color: "#CBD5E1", textDecorationLine: "line-through" },
+  bookedBadge: {
+    marginLeft: 6, backgroundColor: "#FEE2E2",
+    borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2,
   },
-  slotChipText: {
-    fontSize: 12,
-    fontFamily: "Manrope_600SemiBold",
-    color: P.ink,
-  },
-  slotChipTextSelected: { color: P.navy, fontFamily: "Manrope_700Bold" },
-  slotChipTextBooked: { color: P.muted, textDecorationLine: "line-through" },
-  slotBookedBadge: {
-    marginLeft: 6,
-    backgroundColor: P.errorPale,
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-  },
-  slotBookedBadgeText: {
-    fontSize: 9,
-    fontFamily: "Manrope_700Bold",
-    color: P.error,
-  },
+  bookedBadgeText: { fontSize: 9, fontFamily: fonts.bold, color: "#EF4444" },
 
   // Mode
   modeRow: { flexDirection: "row", gap: 12 },
   modeCard: {
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: P.border,
-    backgroundColor: P.inputBg,
-    padding: 14,
-    alignItems: "center",
-    gap: 6,
-    position: "relative",
+    flex: 1, borderRadius: 16, borderWidth: 1.5,
+    borderColor: "#E2E8F0", backgroundColor: "#F8FAFC",
+    padding: 16, alignItems: "center", gap: 8,
+    position: "relative", overflow: "hidden",
   },
-  modeCardActive: { backgroundColor: P.goldDim, borderColor: P.goldBorder },
+  modeCardActive: { borderColor: P.gold, backgroundColor: "rgba(232,168,56,0.06)" },
+  modeCheckBadge: {
+    position: "absolute", top: 10, right: 10,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: P.success,
+    alignItems: "center", justifyContent: "center",
+  },
   modeIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.border,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 48, height: 48, borderRadius: 14,
+    alignItems: "center", justifyContent: "center",
   },
-  modeIconBoxActive: { backgroundColor: P.gold, borderColor: P.gold },
-  modeLabel: { fontSize: 13, fontFamily: "Manrope_700Bold", color: P.muted },
-  modeLabelActive: { color: P.navy },
-  modeSub: {
-    fontSize: 11,
-    fontFamily: "Manrope_400Regular",
-    color: P.muted,
-    textAlign: "center",
-  },
-  modeCheck: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: P.gold,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  modeLabel: { fontSize: 14, fontFamily: fonts.bold, color: P.muted },
+  modeLabelActive: { color: P.ink },
+  modeSub: { fontSize: 11, fontFamily: fonts.medium, color: "#94A3B8", textAlign: "center" },
+  modeSubActive: { color: P.muted },
 
   // Summary card
   summaryCard: {
-    backgroundColor: P.white,
-    marginHorizontal: 20,
-    marginBottom: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: P.border,
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 16, marginBottom: 14,
+    borderRadius: 20, borderWidth: 1, borderColor: "#F1F5F9",
     overflow: "hidden",
-    shadowColor: P.navy,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
+    ...Platform.select({
+      ios: { shadowColor: "#0D1B2A", shadowOpacity: 0.07, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+      android: { elevation: 3 },
+    }),
   },
-  summaryAccent: { height: 2 },
-  summaryHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: P.border,
+  summaryTopBar: { height: 3 },
+  summaryHead: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: "#F8FAFC",
   },
   summaryIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: P.goldDim,
-    borderWidth: 1,
-    borderColor: P.goldBorder,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 30, height: 30, borderRadius: 9,
+    backgroundColor: "rgba(232,168,56,0.1)",
+    borderWidth: 1, borderColor: "rgba(232,168,56,0.25)",
+    alignItems: "center", justifyContent: "center",
   },
-  summaryTitle: { fontSize: 13, fontFamily: "Manrope_700Bold", color: P.ink },
-  summaryBody: { padding: 18 },
-  summaryDivider: { height: 1, backgroundColor: P.border, marginVertical: 12 },
+  summaryTitle: { flex: 1, fontSize: 14, fontFamily: fonts.bold, color: P.ink },
+  summaryStepBadge: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 20,
+  },
+  summaryStepText: { fontSize: 10, fontFamily: fonts.bold, color: "#64748B" },
+  summaryBody: { padding: 16 },
+  summaryDivider: { height: 1, backgroundColor: "#F1F5F9", marginVertical: 12 },
+  summaryTotal: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  summaryTotalLabel: { fontSize: 14, fontFamily: fonts.semiBold, color: P.ink },
+  summaryTotalValue: { fontSize: 22, fontFamily: fonts.extraBold, color: P.gold, letterSpacing: -0.5 },
+  summaryNote: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    marginTop: 12, padding: 12,
+    backgroundColor: "rgba(40,167,69,0.06)",
+    borderRadius: 12, borderWidth: 1,
+    borderColor: "rgba(40,167,69,0.15)",
+  },
+  summaryNoteText: { fontSize: 12, fontFamily: fonts.medium, color: P.mutedDark, flex: 1 },
 
   // Footer
   footer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingBottom: 28,
-    backgroundColor: P.cream,
-    borderTopWidth: 1,
-    borderTopColor: P.border,
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    paddingHorizontal: 16, paddingTop: 14,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1, borderTopColor: "#F1F5F9",
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 16, shadowOffset: { width: 0, height: -4 } },
+      android: { elevation: 8 },
+    }),
   },
   ctaBtn: { borderRadius: 16, overflow: "hidden" },
-  ctaBtnInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    gap: 4,
+  ctaInner: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 22, paddingVertical: 15,
   },
-  ctaBtnText: {
-    fontSize: 15,
-    fontFamily: "Manrope_700Bold",
-    color: P.navy,
-    letterSpacing: 0.2,
-  },
+  ctaLabel: { fontSize: 15, fontFamily: fonts.extraBold, color: P.navy },
+  ctaSub: { fontSize: 11, fontFamily: fonts.medium, color: "rgba(13,27,42,0.55)", marginTop: 1 },
   ctaArrow: {
-    height: 26,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: "rgba(13,27,42,0.12)",
+    alignItems: "center", justifyContent: "center",
   },
+  ctaDisabled: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    paddingVertical: 16, borderRadius: 16,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1, borderColor: "#E2E8F0",
+  },
+  ctaDisabledText: { fontSize: 14, fontFamily: fonts.medium, color: P.muted },
 });

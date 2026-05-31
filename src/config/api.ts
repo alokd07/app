@@ -1,7 +1,7 @@
 // Centralized API configuration
 export const API_CONFIG = {
-  BASE_URL: "https://api.bookmysession.in",
-  // BASE_URL: "http://192.168.31.9:8001",
+  // BASE_URL: "https://api.bookmysession.in",
+  BASE_URL: "http://192.168.31.9:8001",
   ENDPOINTS: {
     // Auth
     SEND_OTP: "/auth/whatsapp/send-otp",
@@ -13,7 +13,7 @@ export const API_CONFIG = {
 
     // Teachers
     TEACHERS: "/teacher/nearby-teachers",
-    TEACHER_DETAIL: (id: string) => `/teachers/${id}`,
+    TEACHER_DETAIL: (id: string) => `/teacher/${id}`,
 
     // Bookings
     BOOKINGS: "/appointments/create",

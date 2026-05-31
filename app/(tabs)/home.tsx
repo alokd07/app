@@ -58,99 +58,6 @@ const promotions = [
   },
 ];
 
-const sampleTeachers = [
-  {
-    _id: "t1",
-    name: "Ananya Sharma",
-    profileImage: "https://randomuser.me/api/portraits/women/44.jpg",
-    rating: 4.8,
-    totalReviews: 120,
-    subject: "Mathematics",
-    area: "Connaught Place, Delhi",
-    experience: 5,
-    languages: ["English", "Hindi"],
-    availableDays: ["Mon", "Tue", "Wed", "Thu"],
-    isAvailableNow: true,
-    board: "CBSE",
-    teaches: ["Class 9", "Class 10", "Class 11"],
-  },
-  {
-    _id: "t2",
-    name: "Rahul Verma",
-    profileImage: "https://randomuser.me/api/portraits/men/32.jpg",
-    rating: 4.6,
-    totalReviews: 98,
-    subject: "Physics",
-    area: "Lajpat Nagar, Delhi",
-    experience: 3,
-    languages: ["English", "Hindi"],
-    availableDays: ["Mon", "Wed", "Fri", "Sat"],
-    isAvailableNow: false,
-    board: "ICSE",
-    teaches: ["Class 11", "Class 12"],
-  },
-  {
-    _id: "t3",
-    name: "Priya Singh",
-    profileImage: "https://randomuser.me/api/portraits/women/68.jpg",
-    rating: 4.9,
-    totalReviews: 210,
-    subject: "English Literature",
-    area: "Dwarka, Delhi",
-    experience: 8,
-    languages: ["English"],
-    availableDays: ["Mon", "Tue", "Thu", "Fri"],
-    isAvailableNow: true,
-    board: "CBSE",
-    teaches: ["Class 6", "Class 7", "Class 8"],
-  },
-  {
-    _id: "t4",
-    name: "Arjun Mehta",
-    profileImage: "https://randomuser.me/api/portraits/men/76.jpg",
-    rating: 4.5,
-    totalReviews: 75,
-    subject: "Chemistry",
-    area: "Rohini, Delhi",
-    experience: 4,
-    languages: ["Hindi", "English"],
-    availableDays: ["Tue", "Thu", "Sat", "Sun"],
-    isAvailableNow: false,
-    board: "CBSE",
-    teaches: ["Class 11", "Class 12"],
-  },
-  {
-    _id: "t5",
-    name: "Neha Gupta",
-    profileImage: "https://randomuser.me/api/portraits/women/12.jpg",
-    rating: 4.7,
-    totalReviews: 134,
-    subject: "Biology",
-    area: "Vasant Kunj, Delhi",
-    experience: 6,
-    languages: ["English", "Hindi"],
-    availableDays: ["Mon", "Wed", "Fri"],
-    isAvailableNow: true,
-    board: "NEET",
-    teaches: ["Class 11", "Class 12"],
-  },
-  {
-    _id: "t6",
-    name: "Karan Patel",
-    profileImage: "https://randomuser.me/api/portraits/men/55.jpg",
-    rating: 4.4,
-    totalReviews: 60,
-    subject: "Computer Science",
-    area: "Noida Sector 18",
-    experience: 2,
-    languages: ["English", "Hindi"],
-    availableDays: ["Sat", "Sun"],
-    isAvailableNow: true,
-    board: "CBSE",
-    teaches: ["Class 10", "Class 11", "Class 12"],
-  },
-];
-
 function getGreeting() {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -410,7 +317,7 @@ function TeacherCard({ item, index }: { item: any; index: number }) {
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [teachers, setTeachers] = useState<any[]>(sampleTeachers);
+  const [teachers, setTeachers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
@@ -444,13 +351,18 @@ export default function HomeScreen() {
   const fetchTeachers = async (pageNum = 1, search = "") => {
     try {
       setLoading(true);
+
       const params: any = { page: pageNum, limit: 10 };
       if (search) params.subject = search;
+
       const response = await apiClient.get(API_CONFIG.ENDPOINTS.TEACHERS, {
         params,
       });
-      if (response?.data?.data) {
-        const data = response.data.data.data || response.data.data;
+
+      console.log("Fetched teachers:", response.data);
+
+      if (response?.data?.data?.teachers) {
+        const data = response.data.data.teachers;
         setTeachers((prev) =>
           pageNum === 1
             ? data
@@ -629,6 +541,10 @@ export default function HomeScreen() {
       saveUserData(updated);
     }
   }, [setUser, user]);
+
+  useEffect(() => {
+    fetchTeachers(1);
+  }, []);
 
   // const markLearningActivity = () => {
   //   const updated = calculateStreak(user);
@@ -871,23 +787,35 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 
-  const renderEmpty = () => (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIconBox}>
-        <Ionicons name="people-outline" size={40} color={appColors.gold} />
+  const renderEmpty = () => {
+    if (loading && page === 1) {
+      return (
+        <View style={[styles.emptyState, { paddingTop: 40 }]}>
+          <ActivityIndicator size="large" color={appColors.gold} />
+          <Text style={[styles.emptySubtitle, { marginTop: 12 }]}>
+            Loading recommended teachers...
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyState}>
+        <View style={styles.emptyIconBox}>
+          <Ionicons name="people-outline" size={40} color={appColors.gold} />
+        </View>
+        <Text style={styles.emptyTitle}>No teachers found</Text>
+        <Text style={styles.emptySubtitle}>
+          Try adjusting your search or filters
+        </Text>
+        <TouchableOpacity
+          style={styles.emptyBtn}
+          onPress={() => handleSearch("")}
+        >
+          <Text style={styles.emptyBtnText}>Clear Search</Text>
+        </TouchableOpacity>
       </View>
-      <Text style={styles.emptyTitle}>No teachers found</Text>
-      <Text style={styles.emptySubtitle}>
-        Try adjusting your search or filters
-      </Text>
-      <TouchableOpacity
-        style={styles.emptyBtn}
-        onPress={() => handleSearch("")}
-      >
-        <Text style={styles.emptyBtnText}>Clear Search</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   const renderFooter = () =>
     loading && page > 1 ? (

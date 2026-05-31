@@ -24,6 +24,8 @@ import {
 import Avatar from "@/components/Avatar";
 import { appColors } from "../../src/theme/colors";
 import { useAuthStore } from "@/src/store/authStore";
+import apiClient from "../../src/services/api";
+import { API_CONFIG } from "../../src/config/api";
 
 const { width } = Dimensions.get("window");
 
@@ -222,7 +224,7 @@ function BookingCard({ item, index }: { item: any; index: number }) {
   }, []);
 
   const statusColor =
-    item.status === "upcoming"
+    item.status === "upcoming" || item.status === "pending" || item.status === "confirmed"
       ? P.gold
       : item.status === "completed"
         ? P.success
@@ -243,13 +245,19 @@ function BookingCard({ item, index }: { item: any; index: number }) {
         <View style={styles.passMain}>
           <View style={styles.passHeader}>
             <View style={styles.teacherRow}>
-              <Image
-                source={{ uri: item.teacher.profileImage }}
-                style={styles.teacherAvatar}
-              />
+              {item.teacher?.profileImage ? (
+                <Image
+                  source={{ uri: item.teacher.profileImage }}
+                  style={styles.teacherAvatar}
+                />
+              ) : (
+                <View style={[styles.teacherAvatar, { backgroundColor: P.navyMid, justifyContent: 'center', alignItems: 'center' }]}>
+                  <Ionicons name="person" size={20} color={P.gold} />
+                </View>
+              )}
               <View>
-                <Text style={styles.passTeacherName}>{item.teacher.name}</Text>
-                <Text style={styles.passSubject}>{item.teacher.subject}</Text>
+                <Text style={styles.passTeacherName}>{item.teacher?.name || "Teacher"}</Text>
+                <Text style={styles.passSubject}>{item.teacher?.subject || "General"}</Text>
               </View>
             </View>
             <View
@@ -260,7 +268,7 @@ function BookingCard({ item, index }: { item: any; index: number }) {
                 size={10}
                 color={P.gold}
               />
-              <Text style={styles.modeTextNew}>{item.mode.toUpperCase()}</Text>
+              <Text style={styles.modeTextNew}>{(item.mode || "online").toUpperCase()}</Text>
             </View>
           </View>
 
@@ -274,11 +282,11 @@ function BookingCard({ item, index }: { item: any; index: number }) {
             <View style={styles.detailItem}>
               <Ionicons name="time-outline" size={14} color={P.muted} />
               <Text style={styles.detailText}>
-                {formatTime(item.timeSlot.startTime)}
+                {item.timeSlot?.startTime ? formatTime(item.timeSlot.startTime) : "—"}
               </Text>
             </View>
             <View style={styles.detailItem}>
-              <Text style={styles.paidText}>₹{item.advancePaid}</Text>
+              <Text style={styles.paidText}>₹{item.advancePaid || 500}</Text>
             </View>
           </View>
         </View>
@@ -289,14 +297,81 @@ function BookingCard({ item, index }: { item: any; index: number }) {
 
 export default function BookingsScreen() {
   const [activeTab, setActiveTab] = useState("upcoming");
+  const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const user = useAuthStore((state) => state.user);
-  
+
+  const fetchBookings = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    try {
+      const response = await apiClient.get(API_CONFIG.ENDPOINTS.MY_BOOKINGS);
+      if (response.data?.success && response.data?.data) {
+        setBookings(response.data.data);
+      } else if (Array.isArray(response.data)) {
+        setBookings(response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchBookings(false);
+  };
+
+  const getFilteredBookings = () => {
+    const now = new Date().getTime();
+    return bookings.filter((b) => {
+      const sessionDate = new Date(b.date).getTime();
+      const isPast = sessionDate < now;
+
+      if (activeTab === "upcoming") {
+        return (
+          (b.status === "upcoming" || b.status === "pending" || b.status === "confirmed") &&
+          !isPast
+        );
+      }
+      if (activeTab === "completed") {
+        return (
+          b.status === "completed" ||
+          ((b.status === "confirmed" || b.status === "pending") && isPast)
+        );
+      }
+      if (activeTab === "cancelled") {
+        return b.status === "cancelled";
+      }
+      return true;
+    });
+  };
+
+  const now = new Date().getTime();
+  const activeCount = bookings.filter(
+    (b) =>
+      (b.status === "confirmed" || b.status === "pending") &&
+      new Date(b.date).getTime() >= now
+  ).length;
+
+  const completedCount = bookings.filter(
+    (b) =>
+      b.status === "completed" ||
+      ((b.status === "confirmed" || b.status === "pending") &&
+        new Date(b.date).getTime() < now)
+  ).length;
+
   // Stats Logic
   const stats = [
-    { label: "Active", value: "3", icon: "flash" },
-    { label: "Hours", value: "24", icon: "time" },
-    { label: "Saved", value: "₹2.4k", icon: "wallet" },
+    { label: "Active", value: String(activeCount), icon: "flash" },
+    { label: "Sessions", value: String(completedCount), icon: "time" },
+    { label: "Total", value: String(bookings.length), icon: "wallet" },
   ];
 
   return (
@@ -332,19 +407,27 @@ export default function BookingsScreen() {
 
       {/* ── List ── */}
       <FlatList
-        data={
-          activeTab === "upcoming"
-            ? sampleBookings.slice(0, 3)
-            : sampleBookings.slice(3, 6)
-        }
+        data={getFilteredBookings()}
         keyExtractor={(item) => item._id}
         renderItem={({ item, index }) => (
           <BookingCard item={item} index={index} />
         )}
         contentContainerStyle={styles.listPadding}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[P.gold]}
+            tintColor={P.gold}
+          />
+        }
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No sessions found.</Text>
+          loading ? (
+            <ActivityIndicator size="large" color={P.gold} style={{ marginTop: 40 }} />
+          ) : (
+            <Text style={styles.emptyText}>No sessions found.</Text>
+          )
         }
       />
     </SafeAreaView>
