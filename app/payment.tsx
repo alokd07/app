@@ -9,36 +9,44 @@ import {
   Animated,
   ScrollView,
   Platform,
+  Dimensions,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCurrency } from "../src/utils/helpers";
 import { API_CONFIG, RAZORPAY_CONFIG } from "../src/config/api";
 import apiClient from "../src/services/api";
-import { appColors } from "../src/theme/colors";
+import { appColors, fonts } from "../src/theme/colors";
 
+const { width: SW } = Dimensions.get("window");
 const P = appColors;
 
-// ─── Atoms ─────────────────────────────────────────────────────────────────────
-function DetailRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: any;
-  label: string;
-  value: string;
-}) {
+// ─── Payment method config ─────────────────────────────────────────────────────
+const METHODS = [
+  { id: "upi",  icon: "phone-portrait-outline", label: "UPI",         sub: "GPay · PhonePe · Paytm",  badge: "Instant" },
+  { id: "card", icon: "card-outline",           label: "Card",        sub: "Credit / Debit card",      badge: null },
+  { id: "net",  icon: "business-outline",       label: "Net Banking", sub: "All major banks",          badge: null },
+];
+
+// ─── Trust badges ──────────────────────────────────────────────────────────────
+const TRUST = [
+  { icon: "shield-checkmark",   label: "256-bit SSL",   color: "#22C55E" },
+  { icon: "lock-closed",        label: "PCI DSS",       color: P.gold     },
+  { icon: "checkmark-circle",   label: "RBI Approved",  color: "#3B82F6" },
+];
+
+// ─── Detail row atom ───────────────────────────────────────────────────────────
+function DetailRow({ icon, label, value }: { icon: any; label: string; value: string }) {
   return (
-    <View style={styles.detailRow}>
-      <View style={styles.detailIconBox}>
-        <Ionicons name={icon} size={13} color={P.gold} />
+    <View style={s.detailRow}>
+      <View style={s.detailIcon}>
+        <Ionicons name={icon} size={14} color={P.gold} />
       </View>
-      <View style={styles.detailTexts}>
-        <Text style={styles.detailLabel}>{label}</Text>
-        <Text style={styles.detailValue}>{value}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={s.detailLabel}>{label}</Text>
+        <Text style={s.detailValue}>{value}</Text>
       </View>
     </View>
   );
@@ -47,50 +55,40 @@ function DetailRow({
 // ─── Screen ────────────────────────────────────────────────────────────────────
 export default function PaymentScreen() {
   const { bookingId, amount, teacherName, date, time } = useLocalSearchParams<{
-    bookingId: string;
-    amount: string;
-    teacherName: string;
-    date: string;
-    time: string;
+    bookingId: string; amount: string; teacherName: string; date: string; time: string;
   }>();
 
-  const [processing, setProcessing] = useState(false);
+  const [processing, setProcessing]     = useState(false);
+  const [selectedMethod, setMethod]     = useState("upi");
+  const insets = useSafeAreaInsets();
 
-  type RazorpayOrderResponse = {
-    orderId?: string;
-    order_id?: string;
-    amount?: number;
-    currency?: string;
-  };
-
-  // Entrance anims
-  const fadeY = useRef(new Animated.Value(20)).current;
-  const fade = useRef(new Animated.Value(0)).current;
-  const heroS = useRef(new Animated.Value(0.88)).current;
+  // Entrance animations
+  const fade    = useRef(new Animated.Value(0)).current;
+  const slideY  = useRef(new Animated.Value(30)).current;
+  const heroScale = useRef(new Animated.Value(0.9)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fade, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.spring(fadeY, {
-        toValue: 0,
-        tension: 55,
-        friction: 10,
-        useNativeDriver: true,
-      }),
-      Animated.spring(heroS, {
-        toValue: 1,
-        tension: 55,
-        friction: 8,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fade, { toValue: 1, duration: 480, useNativeDriver: true }),
+      Animated.spring(slideY, { toValue: 0, tension: 60, friction: 10, useNativeDriver: true }),
+      Animated.spring(heroScale, { toValue: 1, tension: 55, friction: 7, useNativeDriver: true }),
     ]).start();
-  }, [fade, fadeY, heroS]);
 
-  const completePaymentAndNavigate = () => {
+    // Subtle pulse on the amount
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.04, duration: 1400, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1,    duration: 1400, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
+  const amountNum = parseFloat(amount || "0");
+
+  const completeAndNavigate = () => {
     router.replace({
       pathname: "/booking-confirmation",
       params: { bookingId, teacherName, date, time, amount },
@@ -101,17 +99,12 @@ export default function PaymentScreen() {
     setTimeout(() => {
       setProcessing(false);
       Alert.alert(
-        "Payment Successful!",
-        "Your booking has been confirmed",
-        [
-          {
-            text: "View Booking",
-            onPress: completePaymentAndNavigate,
-          },
-        ],
-        { cancelable: false },
+        "🎉 Payment Successful!",
+        `₹${amountNum} paid for your session with ${teacherName}.`,
+        [{ text: "View Booking", onPress: completeAndNavigate }],
+        { cancelable: false }
       );
-    }, 2000);
+    }, 1800);
   };
 
   const handlePayment = async () => {
@@ -124,680 +117,485 @@ export default function PaymentScreen() {
 
     if (Platform.OS === "web") {
       setProcessing(false);
-      Alert.alert(
-        "Unsupported Platform",
-        "Razorpay native checkout is available only on Android/iOS builds.",
-      );
+      Alert.alert("Unsupported Platform", "Razorpay is available only on Android/iOS builds.");
       return;
     }
 
     try {
-      const orderRes = await apiClient.post(
-        API_CONFIG.ENDPOINTS.RAZORPAY_CREATE_ORDER,
-        {
-          bookingId,
-          amount: amountNum,
-          currency: "INR",
-        },
-      );
-
-      const orderData: RazorpayOrderResponse =
-        orderRes?.data?.data || orderRes?.data || {};
+      const orderRes = await apiClient.post(API_CONFIG.ENDPOINTS.RAZORPAY_CREATE_ORDER, {
+        bookingId, amount: amountNum, currency: "INR",
+      });
+      const orderData = orderRes?.data?.data || orderRes?.data || {};
       const orderId = orderData.orderId || orderData.order_id;
-
-      if (!orderId) {
-        throw new Error("Unable to create Razorpay order");
-      }
+      if (!orderId) throw new Error("Unable to create Razorpay order");
 
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const RazorpayCheckout = require("react-native-razorpay").default;
-
-      const paymentResult = await RazorpayCheckout.open({
+      const result = await RazorpayCheckout.open({
         key: RAZORPAY_CONFIG.KEY_ID,
         amount: Math.round(amountNum * 100),
         currency: orderData.currency || "INR",
         name: "BookMySession",
-        description: `Session booking with ${teacherName || "teacher"}`,
+        description: `Session with ${teacherName || "teacher"}`,
         order_id: orderId,
-        prefill: {
-          name: "Student",
-        },
-        theme: {
-          color: P.navy,
-        },
+        prefill: { name: "Student" },
+        theme: { color: P.navy },
       });
 
       await apiClient.post(API_CONFIG.ENDPOINTS.RAZORPAY_VERIFY_PAYMENT, {
         bookingId,
-        razorpay_order_id: paymentResult?.razorpay_order_id,
-        razorpay_payment_id: paymentResult?.razorpay_payment_id,
-        razorpay_signature: paymentResult?.razorpay_signature,
+        razorpay_order_id: result?.razorpay_order_id,
+        razorpay_payment_id: result?.razorpay_payment_id,
+        razorpay_signature: result?.razorpay_signature,
       });
 
       setProcessing(false);
-      Alert.alert("Payment Successful!", "Your booking has been confirmed", [
-        {
-          text: "View Booking",
-          onPress: completePaymentAndNavigate,
-        },
+      Alert.alert("Payment Successful!", "Your booking has been confirmed.", [
+        { text: "View Booking", onPress: completeAndNavigate },
       ]);
     } catch (err: any) {
       setProcessing(false);
-
-      const errorText =
-        err?.description ||
-        err?.error?.description ||
-        err?.response?.data?.message ||
-        err?.message ||
-        "Payment failed. Please try again.";
-
-      if (
-        (typeof errorText === "string" &&
-          errorText.toLowerCase().includes("cancel")) ||
-        err?.code === 2
-      ) {
+      const msg = err?.description || err?.error?.description ||
+        err?.response?.data?.message || err?.message || "Payment failed. Please try again.";
+      if ((typeof msg === "string" && msg.toLowerCase().includes("cancel")) || err?.code === 2) {
         Alert.alert("Payment Cancelled", "You cancelled the payment flow.");
         return;
       }
-
-      Alert.alert("Payment Failed", errorText);
+      Alert.alert("Payment Failed", msg);
     }
   };
 
-  const amountNum = parseFloat(amount || "0");
-
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
-      {/* ── Nav ── */}
-      <View style={styles.nav}>
-        <TouchableOpacity
-          style={styles.navBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="chevron-back" size={18} color={P.ink} />
-        </TouchableOpacity>
-        <Text style={styles.navTitle}>Secure Payment</Text>
-        <View style={{ width: 38 }} />
-      </View>
-
+    <View style={s.root}>
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[s.scroll, { paddingBottom: 140 }]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View
-          style={{ opacity: fade, transform: [{ translateY: fadeY }] }}
-        >
-          {/* ── Hero wallet badge ── */}
-          <Animated.View
-            style={[styles.heroWrap, { transform: [{ scale: heroS }] }]}
-          >
-            <LinearGradient
-              colors={[P.navy, P.navyMid]}
-              style={styles.heroBanner}
-            >
-              <View style={styles.heroOrb} />
+        <Animated.View style={{ opacity: fade, transform: [{ translateY: slideY }] }}>
 
-              {/* Wallet icon ring */}
-              <View style={styles.walletRingOuter}>
+          {/* ── Hero amount card ── */}
+          <Animated.View style={[s.heroWrap, { transform: [{ scale: heroScale }] }]}>
+            <LinearGradient
+              colors={[P.navy, "#112030", P.navyMid]}
+              style={s.heroBanner}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            >
+              {/* Decorative orbs */}
+              <View style={[s.orb, { width: 180, height: 180, top: -70, right: -50, opacity: 0.07 }]} />
+              <View style={[s.orb, { width: 100, height: 100, bottom: -30, left: -20, opacity: 0.05 }]} />
+
+              {/* Lock ring */}
+              <View style={s.lockRingOuter}>
                 <LinearGradient
                   colors={[P.gold, P.goldLight, P.gold]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.walletRingGrad}
+                  style={s.lockRingGrad}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 >
-                  <View style={styles.walletRingInner}>
-                    <Ionicons name="wallet" size={30} color={P.gold} />
+                  <View style={s.lockRingInner}>
+                    <Ionicons name="shield-checkmark" size={28} color={P.gold} />
                   </View>
                 </LinearGradient>
               </View>
 
-              <Text style={styles.heroAmount}>{formatCurrency(amountNum)}</Text>
-              <Text style={styles.heroLabel}>Advance Payment</Text>
+              <Text style={s.heroEyebrow}>Amount Due</Text>
+              <Animated.Text style={[s.heroAmount, { transform: [{ scale: pulseAnim }] }]}>
+                {formatCurrency(amountNum)}
+              </Animated.Text>
+              <Text style={s.heroSub}>Advance · Remaining after session</Text>
 
-              {/* SSL badge */}
-              <View style={styles.sslBadge}>
-                <Ionicons name="shield-checkmark" size={12} color={P.success} />
-                <Text style={styles.sslText}>256-bit SSL Encrypted</Text>
+              {/* Trust strip */}
+              <View style={s.trustStrip}>
+                {TRUST.map((t) => (
+                  <View key={t.label} style={s.trustItem}>
+                    <Ionicons name={t.icon as any} size={11} color={t.color} />
+                    <Text style={s.trustText}>{t.label}</Text>
+                  </View>
+                ))}
               </View>
             </LinearGradient>
           </Animated.View>
 
-          {/* ── Booking Summary card ── */}
-          <View style={styles.card}>
+          {/* ── Booking summary ── */}
+          <View style={s.card}>
             <LinearGradient
               colors={[P.gold, "transparent"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.cardAccent}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={s.cardTopBar}
             />
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIconBox}>
-                <Ionicons name="receipt-outline" size={13} color={P.gold} />
+            <View style={s.cardHead}>
+              <View style={s.cardIconBox}>
+                <Ionicons name="receipt-outline" size={14} color={P.gold} />
               </View>
-              <Text style={styles.cardTitle}>Booking Summary</Text>
+              <Text style={s.cardTitle}>Booking Summary</Text>
             </View>
-
-            <View style={styles.detailsWrap}>
-              <DetailRow
-                icon="person-outline"
-                label="Teacher"
-                value={teacherName || "—"}
-              />
-              <DetailRow
-                icon="calendar-outline"
-                label="Date"
-                value={date || "—"}
-              />
-              <DetailRow icon="time-outline" label="Time" value={time || "—"} />
+            <View style={s.cardBody}>
+              <DetailRow icon="person-outline"   label="Teacher" value={teacherName || "—"} />
+              <View style={s.rowDivider} />
+              <DetailRow icon="calendar-outline" label="Date"    value={date || "—"} />
+              <View style={s.rowDivider} />
+              <DetailRow icon="time-outline"     label="Time"    value={time || "—"} />
             </View>
-
-            <View style={styles.divider} />
-
-            {/* Amount row */}
-            <View style={styles.amountRow}>
+            <View style={s.totalRow}>
               <View>
-                <Text style={styles.amountRowLabel}>Advance Due Now</Text>
-                <Text style={styles.amountRowSub}>
-                  Remaining payable after session
-                </Text>
+                <Text style={s.totalLabel}>Advance Due Now</Text>
+                <Text style={s.totalSub}>Remaining after session</Text>
               </View>
-              <Text style={styles.amountRowValue}>
-                {formatCurrency(amountNum)}
-              </Text>
+              <Text style={s.totalAmount}>{formatCurrency(amountNum)}</Text>
             </View>
-
-            {/* Info note */}
-            <View style={styles.infoNote}>
-              <Ionicons
-                name="information-circle-outline"
-                size={14}
-                color={P.info}
-              />
-              <Text style={styles.infoNoteText}>
-                You only pay an advance now. The remaining balance is settled
-                directly with the teacher after your session.
+            <View style={s.infoNote}>
+              <Ionicons name="information-circle-outline" size={14} color="#3B82F6" />
+              <Text style={s.infoNoteText}>
+                Only the advance is charged now. Balance is settled directly with the teacher.
               </Text>
             </View>
           </View>
 
-          {/* ── Test mode banner ── */}
+          {/* ── Demo mode banner ── */}
           {!RAZORPAY_CONFIG.ENABLED && (
-            <View style={styles.testCard}>
-              <View style={styles.testCardHeader}>
-                <View style={styles.testIconBox}>
-                  <Ionicons
-                    name="construct-outline"
-                    size={13}
-                    color={P.warning}
-                  />
+            <View style={s.demoBanner}>
+              <View style={s.demoBannerLeft}>
+                <View style={s.demoIconBox}>
+                  <Ionicons name="construct-outline" size={14} color="#F59E0B" />
                 </View>
-                <Text style={styles.testCardTitle}>Demo Mode</Text>
+                <Text style={s.demoBannerTitle}>Demo Mode</Text>
               </View>
-              <Text style={styles.testCardText}>
-                Payment is simulated. Tap Pay Now to complete a mock transaction
-                and proceed to confirmation.
+              <Text style={s.demoBannerText}>
+                Payment is simulated — no real money is charged. Tap Pay Now to proceed.
               </Text>
             </View>
           )}
 
-          {/* ── Payment methods ── */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIconBox}>
-                <Ionicons name="card-outline" size={13} color={P.gold} />
+          {/* ── Payment method picker ── */}
+          <View style={s.card}>
+            <View style={s.cardHead}>
+              <View style={s.cardIconBox}>
+                <Ionicons name="card-outline" size={14} color={P.gold} />
               </View>
-              <Text style={styles.cardTitle}>Pay Via</Text>
+              <Text style={s.cardTitle}>Payment Method</Text>
             </View>
-            <View style={styles.methodsWrap}>
-              {[
-                {
-                  icon: "phone-portrait-outline",
-                  label: "UPI",
-                  sub: "GPay, PhonePe, Paytm",
-                },
-                { icon: "card-outline", label: "Card", sub: "Credit / Debit" },
-                {
-                  icon: "business-outline",
-                  label: "Net Banking",
-                  sub: "All major banks",
-                },
-              ].map((m, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={[
-                    styles.methodChip,
-                    i === 0 && styles.methodChipActive,
-                  ]}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.methodChipIcon,
-                      i === 0 && styles.methodChipIconActive,
-                    ]}
+            <View style={s.methodsList}>
+              {METHODS.map((m) => {
+                const active = selectedMethod === m.id;
+                return (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={[s.methodRow, active && s.methodRowActive]}
+                    onPress={() => setMethod(m.id)}
+                    activeOpacity={0.8}
                   >
-                    <Ionicons
-                      name={m.icon as any}
-                      size={14}
-                      color={i === 0 ? P.navy : P.muted}
-                    />
-                  </View>
-                  <View>
-                    <Text
-                      style={[
-                        styles.methodLabel,
-                        i === 0 && styles.methodLabelActive,
-                      ]}
-                    >
-                      {m.label}
-                    </Text>
-                    <Text style={styles.methodSub}>{m.sub}</Text>
-                  </View>
-                  {i === 0 && (
-                    <View style={styles.methodCheck}>
-                      <Ionicons name="checkmark" size={10} color={P.navy} />
+                    {/* Radio */}
+                    <View style={[s.radio, active && s.radioActive]}>
+                      {active && <View style={s.radioDot} />}
                     </View>
-                  )}
-                </TouchableOpacity>
-              ))}
+
+                    {/* Icon */}
+                    <LinearGradient
+                      colors={active ? [P.gold, "#D4922A"] : ["#F8FAFC", "#F1F5F9"]}
+                      style={s.methodIconBox}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    >
+                      <Ionicons name={m.icon as any} size={16} color={active ? P.navy : P.muted} />
+                    </LinearGradient>
+
+                    {/* Labels */}
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.methodLabel, active && s.methodLabelActive]}>{m.label}</Text>
+                      <Text style={s.methodSub}>{m.sub}</Text>
+                    </View>
+
+                    {/* Badge */}
+                    {m.badge && (
+                      <View style={s.methodBadge}>
+                        <Text style={s.methodBadgeText}>{m.badge}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
+
+          {/* ── Powered by ── */}
+          <View style={s.poweredBy}>
+            <Ionicons name="shield-checkmark-outline" size={13} color={P.muted} />
+            <Text style={s.poweredByText}>Payments secured by Razorpay</Text>
+          </View>
+
         </Animated.View>
-        <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* ── Footer Pay CTA ── */}
-      <View style={styles.footer}>
+      {/* ── Sticky pay CTA ── */}
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {/* Summary line */}
+        <View style={s.footerSummary}>
+          <Text style={s.footerSummaryLabel}>
+            Paying via {METHODS.find((m) => m.id === selectedMethod)?.label}
+          </Text>
+          <Text style={s.footerSummaryAmount}>{formatCurrency(amountNum)}</Text>
+        </View>
+
         <TouchableOpacity
           onPress={handlePayment}
           disabled={processing}
           activeOpacity={0.88}
-          style={[styles.payBtn, processing && { opacity: 0.65 }]}
+          style={[s.payBtn, processing && { opacity: 0.7 }]}
         >
           <LinearGradient
-            colors={[P.gold, P.goldLight]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.payBtnInner}
+            colors={[P.gold, "#D4922A"]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+            style={s.payBtnInner}
           >
             {processing ? (
-              <>
+              <View style={s.payBtnRow}>
                 <ActivityIndicator color={P.navy} size="small" />
-                <Text style={styles.payBtnText}>Processing...</Text>
-              </>
+                <Text style={s.payBtnText}>Processing…</Text>
+              </View>
             ) : (
-              <>
-                <View style={styles.payLockBox}>
-                  <Ionicons name="lock-closed" size={13} color={P.gold} />
+              <View style={s.payBtnRow}>
+                <Text style={s.payBtnText}>Pay {formatCurrency(amountNum)} Securely</Text>
+                <View style={s.payArrow}>
+                  <Ionicons name="arrow-forward" size={15} color={P.navy} />
                 </View>
-                <Text style={styles.payBtnText}>
-                  Pay {formatCurrency(amountNum)}
-                </Text>
-                <View style={styles.payArrow}>
-                  <Ionicons name="arrow-forward" size={14} color={P.gold} />
-                </View>
-              </>
+              </View>
             )}
           </LinearGradient>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: P.cream },
-  scroll: { paddingBottom: 32 },
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#F5F6FA" },
 
   // Nav
   nav: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 14,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 16, paddingBottom: 10,
   },
   navBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.border,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: P.navy,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1, borderColor: "#F1F5F9",
+    alignItems: "center", justifyContent: "center",
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+      android: { elevation: 2 },
+    }),
   },
-  navTitle: {
-    fontSize: 15,
-    fontFamily: "Manrope_700Bold",
-    color: P.ink,
-    letterSpacing: -0.2,
-  },
+  navCenter: { flexDirection: "row", alignItems: "center", gap: 5 },
+  navTitle: { fontSize: 15, fontFamily: fonts.bold, color: P.ink, letterSpacing: -0.2 },
+
+  scroll: { paddingTop: 4 },
 
   // Hero
-  heroWrap: { marginHorizontal: 20, marginBottom: 16 },
+  heroWrap: {
+    marginHorizontal: 16, marginBottom: 16,
+    borderRadius: 24, overflow: "hidden",
+    ...Platform.select({
+      ios: { shadowColor: P.navy, shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } },
+      android: { elevation: 8 },
+    }),
+  },
   heroBanner: {
-    borderRadius: 22,
     alignItems: "center",
-    paddingTop: 28,
-    paddingBottom: 24,
+    paddingTop: 32, paddingBottom: 28,
+    paddingHorizontal: 24,
     overflow: "hidden",
   },
-  heroOrb: {
-    position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "rgba(232,168,56,0.06)",
-    top: -60,
-    right: -50,
+  orb: { position: "absolute", borderRadius: 999, backgroundColor: P.gold },
+
+  lockRingOuter: { marginBottom: 20 },
+  lockRingGrad: {
+    width: 80, height: 80, borderRadius: 22,
+    padding: 3, alignItems: "center", justifyContent: "center",
   },
-  walletRingOuter: { marginBottom: 16 },
-  walletRingGrad: {
-    width: 84,
-    height: 84,
-    borderRadius: 24,
-    padding: 3,
-    alignItems: "center",
-    justifyContent: "center",
+  lockRingInner: {
+    width: 74, height: 74, borderRadius: 20,
+    backgroundColor: "#0D1B2A",
+    alignItems: "center", justifyContent: "center",
   },
-  walletRingInner: {
-    width: 78,
-    height: 78,
-    borderRadius: 22,
-    backgroundColor: P.navyMid,
-    alignItems: "center",
-    justifyContent: "center",
+
+  heroEyebrow: {
+    fontSize: 11, fontFamily: fonts.semiBold,
+    color: "rgba(255,255,255,0.45)",
+    textTransform: "uppercase", letterSpacing: 1.5,
+    marginBottom: 6,
   },
   heroAmount: {
-    fontSize: 36,
-    fontFamily: "Manrope_700Bold",
-    color: P.gold,
-    letterSpacing: -1,
-    marginBottom: 4,
+    fontSize: 42, fontFamily: fonts.extraBold,
+    color: P.gold, letterSpacing: -1.5, marginBottom: 4,
   },
-  heroLabel: {
-    fontSize: 13,
-    fontFamily: "Manrope_500Medium",
-    color: P.muted,
-    marginBottom: 16,
+  heroSub: {
+    fontSize: 12, fontFamily: fonts.medium,
+    color: "rgba(255,255,255,0.38)",
+    marginBottom: 22,
   },
-  sslBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: P.successPale,
-    borderWidth: 1,
-    borderColor: P.successBorder,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+
+  trustStrip: {
+    flexDirection: "row", gap: 0,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 14,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
+    overflow: "hidden",
   },
-  sslText: {
-    fontSize: 11,
-    fontFamily: "Manrope_600SemiBold",
-    color: P.success,
+  trustItem: {
+    flex: 1, flexDirection: "column", alignItems: "center",
+    gap: 4, paddingVertical: 10, paddingHorizontal: 8,
+    borderRightWidth: 1, borderRightColor: "rgba(255,255,255,0.07)",
   },
+  trustText: { fontSize: 9, fontFamily: fonts.bold, color: "rgba(255,255,255,0.5)", textAlign: "center" },
 
   // Card
   card: {
-    backgroundColor: P.white,
-    marginHorizontal: 20,
-    marginBottom: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: P.border,
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 16, marginBottom: 14,
+    borderRadius: 20, borderWidth: 1, borderColor: "#F1F5F9",
     overflow: "hidden",
-    shadowColor: P.navy,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
+    ...Platform.select({
+      ios: { shadowColor: "#0D1B2A", shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+      android: { elevation: 2 },
+    }),
   },
-  cardAccent: { height: 2 },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: P.border,
+  cardTopBar: { height: 3 },
+  cardHead: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: "#F8FAFC",
   },
   cardIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: P.goldDim,
-    borderWidth: 1,
-    borderColor: P.goldBorder,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 30, height: 30, borderRadius: 9,
+    backgroundColor: "rgba(232,168,56,0.1)",
+    borderWidth: 1, borderColor: "rgba(232,168,56,0.25)",
+    alignItems: "center", justifyContent: "center",
   },
-  cardTitle: { fontSize: 13, fontFamily: "Manrope_700Bold", color: P.ink },
+  cardTitle: { fontSize: 14, fontFamily: fonts.bold, color: P.ink },
+  cardBody: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
 
-  // Details
-  detailsWrap: {
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 6,
-    gap: 14,
+  // Detail rows
+  detailRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
+  detailIcon: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: "rgba(232,168,56,0.08)",
+    borderWidth: 1, borderColor: "rgba(232,168,56,0.18)",
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
-  detailRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  detailIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: P.goldDim,
-    borderWidth: 1,
-    borderColor: P.goldBorder,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  detailTexts: { flex: 1 },
-  detailLabel: {
-    fontSize: 10,
-    fontFamily: "Manrope_500Medium",
-    color: P.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 1,
-  },
-  detailValue: {
-    fontSize: 13,
-    fontFamily: "Manrope_600SemiBold",
-    color: P.ink,
-  },
+  detailLabel: { fontSize: 10, fontFamily: fonts.medium, color: P.muted, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 2 },
+  detailValue: { fontSize: 13, fontFamily: fonts.semiBold, color: P.ink },
+  rowDivider: { height: 1, backgroundColor: "#F8FAFC" },
 
-  divider: {
-    height: 1,
-    backgroundColor: P.border,
-    marginHorizontal: 18,
-    marginVertical: 4,
+  // Total row
+  totalRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderTopWidth: 1, borderTopColor: "#F1F5F9",
+    marginTop: 4,
   },
-
-  // Amount row
-  amountRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-  },
-  amountRowLabel: {
-    fontSize: 14,
-    fontFamily: "Manrope_700Bold",
-    color: P.ink,
-    marginBottom: 2,
-  },
-  amountRowSub: {
-    fontSize: 11,
-    fontFamily: "Manrope_400Regular",
-    color: P.muted,
-  },
-  amountRowValue: {
-    fontSize: 22,
-    fontFamily: "Manrope_700Bold",
-    color: P.gold,
-    letterSpacing: -0.5,
-  },
+  totalLabel: { fontSize: 14, fontFamily: fonts.bold, color: P.ink, marginBottom: 2 },
+  totalSub: { fontSize: 11, fontFamily: fonts.regular, color: P.muted },
+  totalAmount: { fontSize: 24, fontFamily: fonts.extraBold, color: P.gold, letterSpacing: -0.5 },
 
   // Info note
   infoNote: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: P.infoPale,
-    borderWidth: 1,
-    borderColor: P.infoBorder,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 12,
+    flexDirection: "row", alignItems: "flex-start", gap: 8,
+    marginHorizontal: 16, marginBottom: 16,
+    backgroundColor: "rgba(59,130,246,0.06)",
+    borderWidth: 1, borderColor: "rgba(59,130,246,0.18)",
+    borderRadius: 12, padding: 12,
   },
-  infoNoteText: {
-    flex: 1,
-    fontSize: 12,
-    fontFamily: "Manrope_400Regular",
-    color: P.info,
-    lineHeight: 18,
-  },
+  infoNoteText: { flex: 1, fontSize: 12, fontFamily: fonts.regular, color: "#1D4ED8", lineHeight: 18 },
 
-  // Test mode
-  testCard: {
-    backgroundColor: P.warningPale,
-    borderWidth: 1,
-    borderColor: P.warningBorder,
-    marginHorizontal: 20,
-    marginBottom: 14,
-    borderRadius: 16,
-    padding: 16,
+  // Demo banner
+  demoBanner: {
+    marginHorizontal: 16, marginBottom: 14,
+    backgroundColor: "rgba(245,158,11,0.08)",
+    borderWidth: 1, borderColor: "rgba(245,158,11,0.25)",
+    borderRadius: 16, padding: 14,
   },
-  testCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  testIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
+  demoBannerLeft: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  demoIconBox: {
+    width: 28, height: 28, borderRadius: 8,
     backgroundColor: "rgba(245,158,11,0.15)",
-    borderWidth: 1,
-    borderColor: P.warningBorder,
-    alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1, borderColor: "rgba(245,158,11,0.3)",
+    alignItems: "center", justifyContent: "center",
   },
-  testCardTitle: {
-    fontSize: 13,
-    fontFamily: "Manrope_700Bold",
-    color: P.warning,
-  },
-  testCardText: {
-    fontSize: 12,
-    fontFamily: "Manrope_400Regular",
-    color: P.mutedDark,
-    lineHeight: 18,
-  },
+  demoBannerTitle: { fontSize: 13, fontFamily: fonts.bold, color: "#D97706" },
+  demoBannerText: { fontSize: 12, fontFamily: fonts.regular, color: "#92400E", lineHeight: 18 },
 
-  // Payment methods
-  methodsWrap: { padding: 16, paddingTop: 14, gap: 10 },
-  methodChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: P.border,
-    backgroundColor: P.inputBg,
-    position: "relative",
+  // Methods
+  methodsList: { paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
+  methodRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    padding: 14, borderRadius: 14,
+    borderWidth: 1.5, borderColor: "#E2E8F0",
+    backgroundColor: "#F8FAFC",
   },
-  methodChipActive: { backgroundColor: P.goldDim, borderColor: P.goldBorder },
-  methodChipIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.border,
-    alignItems: "center",
-    justifyContent: "center",
+  methodRowActive: {
+    borderColor: P.gold,
+    backgroundColor: "rgba(232,168,56,0.05)",
   },
-  methodChipIconActive: { backgroundColor: P.gold, borderColor: P.gold },
-  methodLabel: {
-    fontSize: 13,
-    fontFamily: "Manrope_600SemiBold",
-    color: P.muted,
+  radio: {
+    width: 20, height: 20, borderRadius: 10,
+    borderWidth: 2, borderColor: "#CBD5E1",
+    alignItems: "center", justifyContent: "center",
   },
-  methodLabelActive: { color: P.navy },
-  methodSub: {
-    fontSize: 11,
-    fontFamily: "Manrope_400Regular",
-    color: P.muted,
-    marginTop: 1,
-  },
-  methodCheck: {
-    position: "absolute",
-    top: 10,
-    right: 12,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+  radioActive: { borderColor: P.gold, borderWidth: 2 },
+  radioDot: {
+    width: 9, height: 9, borderRadius: 4.5,
     backgroundColor: P.gold,
-    alignItems: "center",
-    justifyContent: "center",
   },
+  methodIconBox: {
+    width: 38, height: 38, borderRadius: 11,
+    alignItems: "center", justifyContent: "center",
+  },
+  methodLabel: { fontSize: 14, fontFamily: fonts.semiBold, color: P.mutedDark, marginBottom: 1 },
+  methodLabelActive: { color: P.ink, fontFamily: fonts.bold },
+  methodSub: { fontSize: 11, fontFamily: fonts.regular, color: P.muted },
+  methodBadge: {
+    backgroundColor: "rgba(34,197,94,0.1)",
+    borderWidth: 1, borderColor: "rgba(34,197,94,0.25)",
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
+  },
+  methodBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: "#16A34A" },
+
+  // Powered by
+  poweredBy: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5,
+    marginBottom: 8, paddingVertical: 4,
+  },
+  poweredByText: { fontSize: 11, fontFamily: fonts.medium, color: P.muted },
 
   // Footer
   footer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingBottom: 32,
-    backgroundColor: P.cream,
-    borderTopWidth: 1,
-    borderTopColor: P.border,
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1, borderTopColor: "#F1F5F9",
+    paddingHorizontal: 16, paddingTop: 14,
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 16, shadowOffset: { width: 0, height: -4 } },
+      android: { elevation: 10 },
+    }),
   },
+  footerSummary: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    marginBottom: 12,
+  },
+  footerSummaryLabel: { fontSize: 12, fontFamily: fonts.medium, color: P.muted },
+  footerSummaryAmount: { fontSize: 16, fontFamily: fonts.extraBold, color: P.ink },
+
   payBtn: { borderRadius: 16, overflow: "hidden" },
-  payBtnInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    gap: 10,
+  payBtnInner: { paddingVertical: 16, paddingHorizontal: 20 },
+  payBtnRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  payLock: {
+    width: 28, height: 28, borderRadius: 9,
+    backgroundColor: "rgba(13,27,42,0.12)",
+    alignItems: "center", justifyContent: "center",
   },
-  payLockBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 9,
-    backgroundColor: P.navy,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  payBtnText: {
-    fontSize: 15,
-    fontFamily: "Manrope_700Bold",
-    color: P.navy,
-    letterSpacing: 0.2,
-  },
+  payBtnText: { fontSize: 16, fontFamily: fonts.extraBold, color: P.navy, letterSpacing: -0.2 },
   payArrow: {
-    width: 26,
-    height: 26,
-    borderRadius: 9,
-    backgroundColor: P.navy,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 28, height: 28, borderRadius: 9,
+    backgroundColor: "rgba(13,27,42,0.12)",
+    alignItems: "center", justifyContent: "center",
   },
 });
