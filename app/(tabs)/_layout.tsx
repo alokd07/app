@@ -15,45 +15,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { appColors } from "../../src/theme/colors";
+import { appColors, fonts } from "../../src/theme/colors";
 
 const P = appColors;
+const { width: SW } = Dimensions.get("window");
 
+// ─── Tab config ────────────────────────────────────────────────────────────────
 const TABS = [
-  {
-    name: "home",
-    label: "Home",
-    icon: "home" as const,
-    iconOutline: "home-outline" as const,
-  },
-  {
-    name: "bookings",
-    label: "Bookings",
-    icon: "calendar" as const,
-    iconOutline: "calendar-outline" as const,
-  },
-  {
-    name: "profile",
-    label: "Profile",
-    icon: "person" as const,
-    iconOutline: "person-outline" as const,
-  },
+  { name: "home",     label: "Home",     icon: "home"     as const, iconOut: "home-outline"     as const },
+  { name: "bookings", label: "Bookings", icon: "calendar" as const, iconOut: "calendar-outline" as const },
+  { name: "profile",  label: "Profile",  icon: "person"   as const, iconOut: "person-outline"   as const },
 ];
 
-// ─── Dimensions ────────────────────────────────────────────────────────────────
-const { width: SCREEN_W } = Dimensions.get("window");
-const BAR_H = 68;
-const BAR_SIDE_PAD = 20;
-const BAR_W = SCREEN_W - BAR_SIDE_PAD * 2;
-const TAB_W = BAR_W / TABS.length;
-const PILL_H = 52;
-const PILL_INSET = 6;
-const PILL_W = TAB_W - PILL_INSET * 2;
-const ICON_BUBBLE = 40;
-const LABEL_MAX_W = PILL_W - ICON_BUBBLE - 14;
+// ─── Geometry ──────────────────────────────────────────────────────────────────
+const BAR_MX    = 20;              // horizontal margin from screen edge
+const BAR_W     = SW - BAR_MX * 2;
+const BAR_H     = 70;
+const TAB_W     = BAR_W / TABS.length;
+const INDICATOR_W = 28;
+const INDICATOR_H = 3;
 
-// ─── Tab Button ────────────────────────────────────────────────────────────────
-function TabButton({
+// ─── Single Tab Item ───────────────────────────────────────────────────────────
+function TabItem({
   tab,
   isActive,
   progress,
@@ -64,67 +47,61 @@ function TabButton({
   progress: Animated.Value;
   onPress: () => void;
 }) {
-  const labelOpacity = progress.interpolate({
-    inputRange: [0, 0.55, 1],
-    outputRange: [0, 0, 1],
-  });
-  const labelW = progress.interpolate({
-    inputRange: [0, 0.45, 1],
-    outputRange: [0, 0, LABEL_MAX_W],
-  });
-  const labelTransX = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [10, 0],
-  });
+  // Icon bounce on activate
   const iconScale = progress.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: [1, 0.85, 1.1],
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0.8, 1.15],
   });
-  const activeBubble = progress.interpolate({
+  const iconTransY = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 1],
+    outputRange: [0, -2],
   });
-  const mutedBubble = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0],
-  });
+
+  // Label fade + slide
+  const labelOpacity = progress.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] });
+  const labelScale   = progress.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] });
+
+  // Icon color blending (gold when active, muted when not)
+  const iconColor = isActive ? P.gold : "rgba(255,255,255,0.4)";
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={1} style={styles.tabBtn}>
-      <View style={styles.tabContent}>
-        {/* Icon with stacked bubbles */}
-        <Animated.View
-          style={[styles.iconWrap, { transform: [{ scale: iconScale }] }]}
-        >
-          <Animated.View
-            style={[styles.iconBubbleActive, { opacity: activeBubble }]}
-          />
-          <Animated.View
-            style={[styles.iconBubbleMuted, { opacity: mutedBubble }]}
-          />
-          <Ionicons
-            name={isActive ? tab.icon : tab.iconOutline}
-            size={20}
-            color={isActive ? P.navy : P.muted}
-          />
-        </Animated.View>
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={1}
+      style={st.tabItem}
+    >
+      {/* Icon */}
+      <Animated.View
+        style={[
+          st.iconWrap,
+          { transform: [{ scale: iconScale }, { translateY: iconTransY }] },
+        ]}
+      >
+        {/* Active glow behind icon */}
+        {isActive && (
+          <Animated.View style={[st.iconGlow, { opacity: progress }]} />
+        )}
+        <Ionicons
+          name={isActive ? tab.icon : tab.iconOut}
+          size={18}
+          color={iconColor}
+        />
+      </Animated.View>
 
-        {/* Animated label */}
-        <Animated.View
-          style={[
-            styles.labelWrap,
-            {
-              width: labelW,
-              opacity: labelOpacity,
-              transform: [{ translateX: labelTransX }],
-            },
-          ]}
-        >
-          <Text style={styles.tabLabel} numberOfLines={1}>
-            {tab.label}
-          </Text>
-        </Animated.View>
-      </View>
+      {/* Label */}
+      <Animated.Text
+        style={[
+          st.tabLabel,
+          {
+            opacity: labelOpacity,
+            transform: [{ scale: labelScale }],
+            color: isActive ? P.gold : "rgba(255,255,255,0.38)",
+          },
+        ]}
+        numberOfLines={1}
+      >
+        {tab.label}
+      </Animated.Text>
     </TouchableOpacity>
   );
 }
@@ -132,113 +109,132 @@ function TabButton({
 // ─── Custom Tab Bar ────────────────────────────────────────────────────────────
 function CustomTabBar({ state, navigation }: any) {
   const insets = useSafeAreaInsets();
-  const bottomPad = Math.max(insets.bottom, 16);
+  const bottomPad = Math.max(insets.bottom, 12);
 
-  const slideX = useRef(new Animated.Value(state.index * TAB_W)).current;
-  const tabProgress = useRef(
-    TABS.map((_, i) => new Animated.Value(state.index === i ? 1 : 0)),
+  // Sliding indicator translateX
+  const indicatorX = useRef(
+    new Animated.Value(state.index * TAB_W + (TAB_W - INDICATOR_W) / 2)
   ).current;
+
+  // Per-tab progress (0 → inactive, 1 → active)
+  const progress = useRef(
+    TABS.map((_, i) => new Animated.Value(state.index === i ? 1 : 0))
+  ).current;
+
+  // Bar entrance
+  const barY   = useRef(new Animated.Value(100)).current;
+  const barOp  = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(slideX, {
-        toValue: state.index * TAB_W,
-        tension: 80,
-        friction: 13,
+      Animated.spring(barY,  { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
+      Animated.timing(barOp, { toValue: 1, duration: 380,              useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  useEffect(() => {
+    Animated.parallel([
+      // Slide the indicator
+      Animated.spring(indicatorX, {
+        toValue: state.index * TAB_W + (TAB_W - INDICATOR_W) / 2,
+        tension: 90,
+        friction: 14,
         useNativeDriver: true,
       }),
-      ...tabProgress.map((p, i) =>
+      // Animate each tab's progress value
+      ...progress.map((p, i) =>
         Animated.timing(p, {
           toValue: state.index === i ? 1 : 0,
-          duration: 210,
+          duration: 200,
           useNativeDriver: false,
-        }),
+        })
       ),
     ]).start();
   }, [state.index]);
 
-  // Pill translateX: offset by PILL_INSET so it's centred inside each tab slot
-  const pillTranslateX = Animated.add(slideX, new Animated.Value(PILL_INSET));
-
   return (
-    // pointerEvents="box-none" lets touches pass through the gradient area above the bar
     <View
-      style={[styles.outerWrap, { paddingBottom: bottomPad }]}
+      style={[st.outerWrap, { paddingBottom: bottomPad }]}
       pointerEvents="box-none"
     >
-      {/* ── Bottom-up gradient fog ── */}
+      {/* Fog gradient above bar */}
       <LinearGradient
-        colors={[
-          "rgba(250,247,242,0.00)",
-          "rgba(250,247,242,0.60)",
-          "rgba(250,247,242,1.00)",
-        ]}
-        locations={[0, 0.35, 1]}
+        colors={["rgba(245,246,250,0)", "rgba(245,246,250,0.35)", "rgba(245,246,250,1)"]}
+        locations={[0, 0.4, 1]}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
 
-      {/* ── Frosted pill bar ── */}
-      <View style={styles.barShell} pointerEvents="auto">
-        {/* iOS blur */}
-        {Platform.OS === "ios" && (
-          <BlurView
-            intensity={75}
-            tint="light"
-            style={StyleSheet.absoluteFill}
-          />
-        )}
-        {/* Android solid fallback */}
-        {Platform.OS === "android" && (
-          <View style={[StyleSheet.absoluteFill, styles.androidBg]} />
+      <Animated.View
+        style={[st.barWrap, { transform: [{ translateY: barY }], opacity: barOp }]}
+        pointerEvents="auto"
+      >
+        {/* Frosted glass / blur layer */}
+        {Platform.OS === "ios" ? (
+          <BlurView intensity={0} tint="dark" style={StyleSheet.absoluteFill} />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, st.androidBg]} />
         )}
 
-        {/* ── Sliding gold pill ── */}
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.goldPill,
-            { transform: [{ translateX: pillTranslateX }] },
-          ]}
-        >
-          <LinearGradient
-            colors={[P.gold, P.goldLight]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
+        {/* Navy gradient layer */}
+        <LinearGradient
+          colors={["#0D1B2A", "#112236"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[StyleSheet.absoluteFill, { borderRadius: BAR_H / 2 }]}
+        />
 
-        {/* ── Tabs ── */}
-        <View style={styles.tabsRow}>
-          {TABS.map((tab, index) => {
-            const isActive = state.index === index;
+        {/* Gold top edge line */}
+        <LinearGradient
+          colors={["transparent", P.gold, "transparent"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={st.topEdge}
+        />
+
+        {/* ── Tab items ── */}
+        <View style={st.tabsRow}>
+          {TABS.map((tab, idx) => {
+            const isActive = state.index === idx;
             return (
-              <TabButton
+              <TabItem
                 key={tab.name}
                 tab={tab}
                 isActive={isActive}
-                progress={tabProgress[index]}
+                progress={progress[idx]}
                 onPress={() => {
                   if (!isActive) {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    navigation.navigate(state.routes[index].name);
+                    navigation.navigate(state.routes[idx].name);
                   }
                 }}
               />
             );
           })}
         </View>
-      </View>
+
+        {/* ── Sliding gold underline indicator ── */}
+        <Animated.View
+          pointerEvents="none"
+          style={[st.indicator, { transform: [{ translateX: indicatorX }] }]}
+        >
+          <LinearGradient
+            colors={[P.goldLight, P.gold, P.goldLight]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+      </Animated.View>
     </View>
   );
 }
 
-// ─── Layout ────────────────────────────────────────────────────────────────────
+// ─── Layout export ─────────────────────────────────────────────────────────────
 export default function TabLayout() {
   return (
     <>
-      <StatusBar barStyle="dark-content" backgroundColor={P.cream} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <Tabs
         tabBar={(props) => <CustomTabBar {...props} />}
         screenOptions={{ headerShown: false, animation: "fade" }}
@@ -252,103 +248,90 @@ export default function TabLayout() {
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const st = StyleSheet.create({
   outerWrap: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 0, left: 0, right: 0,
     alignItems: "center",
-    paddingTop: 40, // gradient breathing room above bar
+    paddingTop: 50,        // breathing room for fog gradient
   },
 
-  barShell: {
+  barWrap: {
     width: BAR_W,
     height: BAR_H,
     borderRadius: BAR_H / 2,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.75)",
-    backgroundColor: "transparent",
+    borderColor: "rgba(255,255,255,0.08)",
     ...Platform.select({
       ios: {
-        shadowColor: "#0D1B2A",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.12,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.22,
         shadowRadius: 28,
       },
-      android: { elevation: 14 },
+      android: { elevation: 20 },
     }),
   },
 
   androidBg: {
-    // backgroundColor: "rgba(250,247,242,0.97)",
-    backgroundColor: "rgba(13,27,42,0.97)",
+    backgroundColor: "#0D1B2A",
   },
 
-  goldPill: {
+  // Gold shimmer line across the top edge of the bar
+  topEdge: {
     position: "absolute",
-    top: (BAR_H - PILL_H) / 2,
-    left: 0,
-    width: PILL_W,
-    height: PILL_H,
-    borderRadius: PILL_H / 2,
-    overflow: "hidden",
+    top: 0, left: 0, right: 0,
+    height: 1.5,
+    opacity: 0.6,
   },
 
   tabsRow: {
     flex: 1,
     flexDirection: "row",
+    marginTop: 2
   },
 
-  tabBtn: {
+  tabItem: {
     width: TAB_W,
     height: BAR_H,
     alignItems: "center",
     justifyContent: "center",
+    gap: 4,
+    paddingBottom: 2,
     zIndex: 2,
   },
 
-  tabContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    width: PILL_W,
-    height: PILL_H,
-    paddingHorizontal: 4,
-  },
-
   iconWrap: {
-    width: ICON_BUBBLE,
-    height: ICON_BUBBLE,
-    borderRadius: ICON_BUBBLE / 2,
+    width: 34,
+    height: 34,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
-    flexShrink: 0,
+    position: "relative",
   },
 
-  iconBubbleActive: {
+  // Subtle radial glow behind active icon
+  iconGlow: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: P.white,
-    borderRadius: ICON_BUBBLE / 2,
-  },
-
-  iconBubbleMuted: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: P.mutedBg,
-    borderRadius: ICON_BUBBLE / 2,
-  },
-
-  labelWrap: {
-    overflow: "hidden",
-    marginLeft: 4,
+    backgroundColor: "rgba(255,255,255,1)",
+    borderRadius: 19,
   },
 
   tabLabel: {
-    fontSize: 14,
-    fontFamily: "Manrope_700Bold",
-    color: P.navy,
-    letterSpacing: 0.1,
+    fontSize: 10,
+    fontFamily: fonts.bold,
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
+
+  // Gold pill indicator at the bottom of the bar
+  indicator: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    width: INDICATOR_W,
+    height: INDICATOR_H,
+    borderRadius: INDICATOR_H / 2,
+    overflow: "hidden",
   },
 });

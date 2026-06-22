@@ -683,11 +683,6 @@ export default function SplashScreen() {
       accessible={true}
       accessibilityLabel="Loading BookMySession"
     >
-      <StatusBar
-        barStyle="light-content"
-        translucent
-        backgroundColor="transparent"
-      />
 
       {/* Layered Background - All Expo Compatible */}
       <MeshBackground />
