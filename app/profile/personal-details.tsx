@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -58,6 +59,7 @@ export default function PersonalDetailsScreen() {
 
   const loadUser = async () => {
     const storedUser = await getUserData();
+    console.log("Loaded user data:", storedUser);
     const u =
       storedUser?.student ??
       storedUser?.data?.student ??
@@ -69,7 +71,7 @@ export default function PersonalDetailsScreen() {
       lastName: u.lastName ?? "",
       DOB: u.DOB ?? "",
       gender: u.gender ?? "",
-      phoneNumber: u.phoneNumber ?? "",
+      phoneNumber: u.phone ?? "",
       imageUrl: u.imageUrl ?? "",
     });
   };
@@ -190,6 +192,7 @@ export default function PersonalDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      <StatusBar barStyle="light-content" backgroundColor="#020817" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -197,7 +200,7 @@ export default function PersonalDetailsScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={20} color="#1F2937" />
+          <Ionicons name="arrow-back" size={20} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Personal Details</Text>
         <View style={{ width: 40 }} />
@@ -219,7 +222,11 @@ export default function PersonalDetailsScreen() {
               style={StyleSheet.absoluteFill}
             />
             <View style={styles.avatarWrap}>
-              <Avatar uri={form.imageUrl} name={form.firstName || "Student"} size={90} />
+              <Avatar
+                uri={form.imageUrl}
+                name={form.firstName || "Student"}
+                size={90}
+              />
               <TouchableOpacity
                 style={styles.cameraBtn}
                 onPress={handlePickImage}
@@ -278,14 +285,27 @@ export default function PersonalDetailsScreen() {
                 return (
                   <TouchableOpacity
                     key={opt}
-                    style={[styles.genderChip, active && styles.genderChipActive]}
+                    style={[
+                      styles.genderChip,
+                      active && styles.genderChipActive,
+                    ]}
                     onPress={() => setForm((p) => ({ ...p, gender: opt }))}
                     activeOpacity={0.8}
                   >
                     {active && (
-                      <Ionicons name="checkmark-circle" size={16} color={P.gold} style={{ marginRight: 6 }} />
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={16}
+                        color={P.gold}
+                        style={{ marginRight: 6 }}
+                      />
                     )}
-                    <Text style={[styles.genderText, active && styles.genderTextActive]}>
+                    <Text
+                      style={[
+                        styles.genderText,
+                        active && styles.genderTextActive,
+                      ]}
+                    >
                       {opt}
                     </Text>
                   </TouchableOpacity>
@@ -296,8 +316,15 @@ export default function PersonalDetailsScreen() {
             {/* Phone — locked */}
             <FieldLabel label="Phone Number" />
             <View style={styles.lockedField}>
-              <Ionicons name="lock-closed" size={14} color="#9CA3AF" style={{ marginRight: 8 }} />
-              <Text style={styles.lockedValue}>{formatPhone(form.phoneNumber)}</Text>
+              <Ionicons
+                name="lock-closed"
+                size={14}
+                color="#9CA3AF"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.lockedValue}>
+                {formatPhone(form.phoneNumber)}
+              </Text>
               <View style={styles.verifiedBadge}>
                 <Ionicons name="checkmark-circle" size={13} color="#10B981" />
                 <Text style={styles.verifiedText}>Verified</Text>
@@ -338,23 +365,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingBottom: 14,
-    backgroundColor: "#FFFFFF",
+    paddingVertical: 14,
+    backgroundColor: "#020817",
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: "#020817",
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#ffffff2e",
     justifyContent: "center",
     alignItems: "center",
   },
   headerTitle: {
     fontSize: 17,
     fontFamily: fonts.bold,
-    color: "#1F2937",
+    color: "#fff",
   },
 
   scroll: { paddingBottom: 40 },

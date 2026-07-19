@@ -210,104 +210,118 @@ function TeacherCard({ item, index }: { item: any; index: number }) {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 380, delay: index * 70, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 11, delay: index * 70, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 380,
+        delay: index * 70,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 60,
+        friction: 11,
+        delay: index * 70,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
   const fee = item.feePerSession
     ? `₹${item.feePerSession}`
     : item.fee
-    ? `₹${item.fee}`
-    : "₹500";
+      ? `₹${item.fee}`
+      : "₹500";
 
   const subject = item.subject || "General";
   const experience = item.experience ?? 3;
   const rating = item.rating?.toFixed(1) ?? "4.8";
-  const reviews = item.totalReviews ?? item.reviews ?? Math.floor(Math.random() * 80 + 20);
+  const reviews =
+    item.totalReviews ?? item.reviews ?? Math.floor(Math.random() * 80 + 20);
   const area = item.area || "Delhi";
   const teaches = item.teaches || [];
 
   return (
-    <Animated.View style={[styles.cardWrap, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+    <Animated.View
+      style={[
+        styles.cardWrap,
+        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+      ]}
+    >
       <TouchableOpacity
         style={styles.teacherCard}
         onPress={() => router.push(`/teacher/${item._id}`)}
-        activeOpacity={0.92}
+        activeOpacity={0.9}
       >
-        {/* ── Left: avatar ── */}
-        <View style={styles.cardAvatarCol}>
-          <View style={styles.cardAvatarWrap}>
-            <Image
-              source={{ uri: item.profileImage || `https://i.pravatar.cc/150?u=${item._id}` }}
-              style={styles.cardAvatar}
-              resizeMode="cover"
-            />
-          </View>
-          {/* Online indicator */}
-          <View style={[styles.onlineDot, item.isAvailableNow ? styles.onlineDotOn : styles.onlineDotOff]} />
-        </View>
+        <View style={styles.topRow}>
+          <Image
+            source={{
+              uri:
+                item.profileImage || `https://i.pravatar.cc/150?u=${item._id}`,
+            }}
+            style={styles.avatar}
+          />
 
-        {/* ── Right: info ── */}
-        <View style={styles.cardInfo}>
-          {/* Row 1: name + rating */}
-          <View style={styles.cardRow}>
-            <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
-            <View style={styles.ratingChip}>
-              <Ionicons name="star" size={10} color={appColors.gold} />
-              <Text style={styles.ratingChipText}>{rating}</Text>
-            </View>
-          </View>
+          <View style={styles.teacherInfo}>
+            <View style={styles.nameRow}>
+              <Text style={styles.teacherName} numberOfLines={1}>
+                {item.name}
+              </Text>
 
-          {/* Row 2: subject + experience */}
-          <View style={styles.cardRow}>
-            <View style={styles.subjectTag}>
-              <Text style={styles.subjectTagText} numberOfLines={1}>{subject}</Text>
-            </View>
-            <Text style={styles.expText}>{experience} yrs exp</Text>
-          </View>
-
-          {/* Row 3: location + reviews */}
-          <View style={styles.cardRow}>
-            <Ionicons name="location-outline" size={12} color={appColors.muted} />
-            <Text style={styles.cardMeta} numberOfLines={1}>{area}</Text>
-            <Text style={styles.dotSep}>·</Text>
-            <Text style={styles.cardMeta}>{reviews} reviews</Text>
-          </View>
-
-          {/* Row 4: class tags */}
-          {teaches.length > 0 && (
-            <View style={styles.cardTagsRow}>
-              {teaches.slice(0, 3).map((cls: string) => (
-                <View key={cls} style={styles.classTag}>
-                  <Text style={styles.classTagText}>{cls}</Text>
-                </View>
-              ))}
-              {teaches.length > 3 && (
-                <Text style={styles.moreTagsText}>+{teaches.length - 3}</Text>
+              {item.isVerified && (
+                <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
               )}
             </View>
-          )}
 
-          {/* Row 5: fee + book button */}
-          <View style={[styles.cardRow, { marginTop: 4 }]}>
-            <View>
-              <Text style={styles.feeText}>{fee}<Text style={styles.feeUnit}>/session</Text></Text>
-            </View>
-            <TouchableOpacity
-              style={styles.bookBtn}
-              onPress={() => router.push(`/teacher/${item._id}`)}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={[appColors.gold, "#D4922A"]}
-                style={styles.bookBtnGrad}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.bookBtnText}>Book Demo</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+            <Text style={styles.subjectText}>
+              {item.subject} • Class {item.classLevel}
+            </Text>
+
+            <Text style={styles.expText}>
+              {item.experience || 3} Years Experience
+            </Text>
           </View>
+
+          <View style={styles.distanceBox}>
+            <Text style={styles.distanceText}>{item.distance || "1.2"} km</Text>
+          </View>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statChip}>
+            <Ionicons name="star" size={14} color="#F59E0B" />
+            <Text style={styles.statText}>{item.rating || "4.8"}</Text>
+          </View>
+
+          <View style={styles.statChip}>
+            <Ionicons name="people-outline" size={14} color="#64748B" />
+            <Text style={styles.statText}>
+              {item.totalReviews || 100}+ Reviews
+            </Text>
+          </View>
+
+          <View style={styles.statChip}>
+            <Ionicons name="home-outline" size={14} color="#64748B" />
+            <Text style={styles.statText}>Home Tuition</Text>
+          </View>
+        </View>
+
+        <View style={styles.tagsRow}>
+          {["CBSE", "ICSE", "English"].map((tag) => (
+            <View key={tag} style={styles.tag}>
+              <Text style={styles.tagText}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.bottomRow}>
+          <View>
+            <Text style={styles.price}>₹{item.fee || 2500}</Text>
+            <Text style={styles.priceLabel}>per month</Text>
+          </View>
+
+          <TouchableOpacity style={styles.demoBtn}>
+            <Text style={styles.demoBtnText}>Book Free Demo</Text>
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -745,8 +759,8 @@ export default function HomeScreen() {
             <TouchableOpacity>
               <Ionicons
                 name="options-outline"
-                size={18}
-                color={appColors.gold}
+                size={20}
+                color={appColors.navyMid}
               />
             </TouchableOpacity>
           )}
@@ -846,7 +860,6 @@ export default function HomeScreen() {
             colors={[appColors.gold]}
           />
         }
-
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false },
@@ -1270,7 +1283,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: appColors.border,
     paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingVertical: 6,
   },
   searchInput: {
     flex: 1,
@@ -1299,25 +1312,147 @@ const styles = StyleSheet.create({
   chipTextActive: { color: appColors.white, fontFamily: "Manrope_600SemiBold" },
 
   // ── TEACHER CARD (redesigned) ──
-  cardWrap: { marginHorizontal: 16, marginBottom: 12 },
-  teacherCard: {
-    backgroundColor: appColors.white,
-    borderRadius: 20,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    padding: 14,
-    gap: 14,
+  cardWrap: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: "#FFF",
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: "#F1F5F9",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#0D1B2A",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.07,
-        shadowRadius: 12,
-      },
-      android: { elevation: 3 },
-    }),
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+
+  teacherCard: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderRadius: 22,
+    marginBottom: 14,
+  },
+
+  topRow: {
+    flexDirection: "row",
+  },
+
+  avatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 18,
+  },
+
+  teacherInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+
+  teacherName: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#111827",
+  },
+
+  subjectText: {
+    fontSize: 13,
+    color: "#374151",
+    marginTop: 3,
+  },
+
+  expText: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 4,
+  },
+
+  distanceBox: {
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+  },
+
+  distanceText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#4F46E5",
+  },
+
+  statsRow: {
+    flexDirection: "row",
+    marginTop: 14,
+    gap: 8,
+  },
+
+  statChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+
+  statText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: "#334155",
+  },
+
+  tagsRow: {
+    flexDirection: "row",
+    marginTop: 12,
+    gap: 8,
+  },
+
+  tag: {
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+
+  tagText: {
+    fontSize: 11,
+    color: "#374151",
+  },
+
+  bottomRow: {
+    marginTop: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  price: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#111827",
+  },
+
+  priceLabel: {
+    fontSize: 11,
+    color: "#6B7280",
+  },
+
+  demoBtn: {
+    backgroundColor: "#18746E",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+
+  demoBtnText: {
+    color: "#FFF",
+    fontWeight: "700",
   },
 
   // Avatar column
@@ -1350,8 +1485,7 @@ const styles = StyleSheet.create({
   cardRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 6,
+    gap: 2,
   },
   cardName: {
     fontSize: 15,
@@ -1410,7 +1544,10 @@ const styles = StyleSheet.create({
   },
   dotSep: {
     fontSize: 11,
-    color: "#D1D5DB",
+    backgroundColor: "#a7a9ad",
+    width: 3,
+    height: 3,
+    borderRadius: 10,
     marginHorizontal: 2,
   },
 
@@ -1455,7 +1592,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: "hidden",
     ...Platform.select({
-      ios: { shadowColor: appColors.gold, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6 },
+      ios: {
+        shadowColor: appColors.gold,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
       android: { elevation: 3 },
     }),
   },

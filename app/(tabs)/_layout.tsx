@@ -16,23 +16,39 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { appColors, fonts } from "../../src/theme/colors";
+import { Keyboard } from "react-native";
 
 const P = appColors;
 const { width: SW } = Dimensions.get("window");
 
 // ─── Tab config ────────────────────────────────────────────────────────────────
 const TABS = [
-  { name: "home",     label: "Home",     icon: "home"     as const, iconOut: "home-outline"     as const },
-  { name: "bookings", label: "Bookings", icon: "calendar" as const, iconOut: "calendar-outline" as const },
-  { name: "profile",  label: "Profile",  icon: "person"   as const, iconOut: "person-outline"   as const },
+  {
+    name: "home",
+    label: "Home",
+    icon: "home" as const,
+    iconOut: "home-outline" as const,
+  },
+  {
+    name: "bookings",
+    label: "Bookings",
+    icon: "calendar" as const,
+    iconOut: "calendar-outline" as const,
+  },
+  {
+    name: "profile",
+    label: "Profile",
+    icon: "person" as const,
+    iconOut: "person-outline" as const,
+  },
 ];
 
 // ─── Geometry ──────────────────────────────────────────────────────────────────
-const BAR_MX    = 20;              // horizontal margin from screen edge
-const BAR_W     = SW - BAR_MX * 2;
-const BAR_H     = 70;
-const TAB_W     = BAR_W / TABS.length;
-const INDICATOR_W = 28;
+const BAR_MX = 20; // horizontal margin from screen edge
+const BAR_W = SW - BAR_MX * 2;
+const BAR_H = 70;
+const TAB_W = BAR_W / TABS.length - 40; // 40 = sum of horizontal margins for each tab
+const INDICATOR_W = TAB_W * 0.5;
 const INDICATOR_H = 3;
 
 // ─── Single Tab Item ───────────────────────────────────────────────────────────
@@ -47,44 +63,58 @@ function TabItem({
   progress: Animated.Value;
   onPress: () => void;
 }) {
-  // Icon bounce on activate
-  const iconScale = progress.interpolate({
+  const scale = progress.interpolate({
     inputRange: [0, 0.5, 1],
-    outputRange: [1, 0.8, 1.15],
+    outputRange: [1, 0.92, 1.08],
   });
-  const iconTransY = progress.interpolate({
+
+  const translateY = progress.interpolate({
     inputRange: [0, 1],
     outputRange: [0, -2],
   });
 
-  // Label fade + slide
-  const labelOpacity = progress.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] });
-  const labelScale   = progress.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] });
+  const labelOpacity = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1],
+  });
 
-  // Icon color blending (gold when active, muted when not)
-  const iconColor = isActive ? P.gold : "rgba(255,255,255,0.4)";
+  const labelTranslate = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [8, 0],
+  });
+
+  const pillOpacity = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={1}
-      style={st.tabItem}
-    >
-      {/* Icon */}
+    <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={st.tabItem}>
+      {/* Active pill */}
       <Animated.View
+        pointerEvents="none"
         style={[
-          st.iconWrap,
-          { transform: [{ scale: iconScale }, { translateY: iconTransY }] },
+          st.activePill,
+          {
+            opacity: pillOpacity,
+            transform: [{ scale }],
+          },
         ]}
       >
-        {/* Active glow behind icon */}
-        {isActive && (
-          <Animated.View style={[st.iconGlow, { opacity: progress }]} />
-        )}
+        <LinearGradient
+          colors={["rgba(212,165,75,0.22)", "rgba(212,165,75,0.08)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+
+      {/* Icon */}
+      <Animated.View>
         <Ionicons
           name={isActive ? tab.icon : tab.iconOut}
-          size={18}
-          color={iconColor}
+          size={20}
+          color={isActive ? P.gold : "rgba(255,255,255,0.45)"}
         />
       </Animated.View>
 
@@ -94,11 +124,9 @@ function TabItem({
           st.tabLabel,
           {
             opacity: labelOpacity,
-            transform: [{ scale: labelScale }],
-            color: isActive ? P.gold : "rgba(255,255,255,0.38)",
+            color: isActive ? P.gold : "rgba(255,255,255,0.45)",
           },
         ]}
-        numberOfLines={1}
       >
         {tab.label}
       </Animated.Text>
@@ -113,22 +141,31 @@ function CustomTabBar({ state, navigation }: any) {
 
   // Sliding indicator translateX
   const indicatorX = useRef(
-    new Animated.Value(state.index * TAB_W + (TAB_W - INDICATOR_W) / 2)
+    new Animated.Value(state.index * TAB_W + (TAB_W - INDICATOR_W) / 2),
   ).current;
 
   // Per-tab progress (0 → inactive, 1 → active)
   const progress = useRef(
-    TABS.map((_, i) => new Animated.Value(state.index === i ? 1 : 0))
+    TABS.map((_, i) => new Animated.Value(state.index === i ? 1 : 0)),
   ).current;
 
   // Bar entrance
-  const barY   = useRef(new Animated.Value(100)).current;
-  const barOp  = useRef(new Animated.Value(0)).current;
+  const barY = useRef(new Animated.Value(100)).current;
+  const barOp = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(barY,  { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
-      Animated.timing(barOp, { toValue: 1, duration: 380,              useNativeDriver: true }),
+      Animated.spring(barY, {
+        toValue: 0,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+      Animated.timing(barOp, {
+        toValue: 1,
+        duration: 380,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
@@ -147,10 +184,35 @@ function CustomTabBar({ state, navigation }: any) {
           toValue: state.index === i ? 1 : 0,
           duration: 200,
           useNativeDriver: false,
-        })
+        }),
       ),
     ]).start();
   }, [state.index]);
+
+  const keyboardHeight = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", () => {
+      Animated.timing(keyboardHeight, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      Animated.timing(keyboardHeight, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   return (
     <View
@@ -159,15 +221,32 @@ function CustomTabBar({ state, navigation }: any) {
     >
       {/* Fog gradient above bar */}
       <LinearGradient
-        colors={["rgba(245,246,250,0)", "rgba(245,246,250,0.35)", "rgba(245,246,250,1)"]}
+        colors={[
+          "rgba(245,246,250,0)",
+          "rgba(245,246,250,0.35)",
+          "rgba(245,246,250,1)",
+        ]}
         locations={[0, 0.4, 1]}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
 
       <Animated.View
-        style={[st.barWrap, { transform: [{ translateY: barY }], opacity: barOp }]}
-        pointerEvents="auto"
+        style={[
+          st.barWrap,
+          {
+            opacity: Animated.multiply(barOp, keyboardHeight),
+            transform: [
+              { translateY: barY },
+              {
+                translateY: keyboardHeight.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [120, 0],
+                }),
+              },
+            ],
+          },
+        ]}
       >
         {/* Frosted glass / blur layer */}
         {Platform.OS === "ios" ? (
@@ -237,7 +316,11 @@ export default function TabLayout() {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <Tabs
         tabBar={(props) => <CustomTabBar {...props} />}
-        screenOptions={{ headerShown: false, animation: "fade" }}
+        screenOptions={{
+          headerShown: false,
+          animation: "fade",
+          tabBarHideOnKeyboard: true,
+        }}
       >
         {TABS.map((tab) => (
           <Tabs.Screen key={tab.name} name={tab.name} />
@@ -251,9 +334,11 @@ export default function TabLayout() {
 const st = StyleSheet.create({
   outerWrap: {
     position: "absolute",
-    bottom: 0, left: 0, right: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     alignItems: "center",
-    paddingTop: 50,        // breathing room for fog gradient
+    paddingTop: 50, // breathing room for fog gradient
   },
 
   barWrap: {
@@ -281,7 +366,9 @@ const st = StyleSheet.create({
   // Gold shimmer line across the top edge of the bar
   topEdge: {
     position: "absolute",
-    top: 0, left: 0, right: 0,
+    top: 0,
+    left: 0,
+    right: 0,
     height: 1.5,
     opacity: 0.6,
   },
@@ -289,25 +376,16 @@ const st = StyleSheet.create({
   tabsRow: {
     flex: 1,
     flexDirection: "row",
-    marginTop: 2
   },
 
   tabItem: {
     width: TAB_W,
-    height: BAR_H,
+    marginHorizontal: 20,
+    // height: BAR_H,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    paddingBottom: 2,
     zIndex: 2,
-  },
-
-  iconWrap: {
-    width: 34,
-    height: 34,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
   },
 
   // Subtle radial glow behind active icon
@@ -329,9 +407,35 @@ const st = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     left: 0,
-    width: INDICATOR_W,
-    height: INDICATOR_H,
+    // width: INDICATOR_W,
+    // height: INDICATOR_H,
     borderRadius: INDICATOR_H / 2,
     overflow: "hidden",
+  },
+  activePill: {
+    position: "absolute",
+    top: 10,
+    width: "100%",
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(212,165,75,0.18)",
+    overflow: "hidden",
+  },
+
+  bottomGlow: {
+    position: "absolute",
+    bottom: 8,
+    width: 40,
+    height: 4,
+    borderRadius: 4,
+    backgroundColor: P.gold,
+    shadowColor: P.gold,
+    shadowOpacity: 0.9,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
   },
 });
