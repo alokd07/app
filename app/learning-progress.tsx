@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
+  ActivityIndicator,
   Dimensions,
   Platform,
 } from "react-native";
@@ -46,156 +47,38 @@ const C = {
 };
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const STATS = [
-  {
-    label: "Certificates",
-    value: 6,
-    total: 15,
-    color: C.gold,
-    bg: C.goldSoft,
-    icon: "ribbon" as const,
-  },
-  {
-    label: "Courses",
-    value: 8,
-    total: 15,
-    color: C.indigo,
-    bg: C.indigoSoft,
-    icon: "book" as const,
-  },
-  {
-    label: "Exams Passed",
-    value: 35,
-    total: 47,
-    color: C.emerald,
-    bg: C.emeraldSoft,
-    icon: "checkmark-done" as const,
-  },
-  {
-    label: "Sessions",
-    value: 12,
-    total: 20,
-    color: C.sky,
-    bg: C.skySoft,
-    icon: "calendar" as const,
-  },
-];
+// ─── Types ────────────────────────────────────────────────────────────────────
+type Stat = {
+  label: string;
+  value: number;
+  total: number;
+  color: string;
+  bg: string;
+  icon: any;
+};
 
-const WEEK_DATA = [
-  { day: "Mon", sessions: 2, pct: 0.8 },
-  { day: "Tue", sessions: 1, pct: 0.4 },
-  { day: "Wed", sessions: 3, pct: 1.0 },
-  { day: "Thu", sessions: 0, pct: 0.0 },
-  { day: "Fri", sessions: 2, pct: 0.65 },
-  { day: "Sat", sessions: 1, pct: 0.35 },
-  { day: "Sun", sessions: 0, pct: 0.0 },
-];
+type WeekDay = { day: string; sessions: number; pct: number };
 
-const SUBJECTS = [
-  { name: "Mathematics", sessions: 6, pct: 0.82, color: C.gold },
-  { name: "Physics", sessions: 3, pct: 0.58, color: C.indigo },
-  { name: "English Lit.", sessions: 2, pct: 0.4, color: C.emerald },
-  { name: "Chemistry", sessions: 1, pct: 0.22, color: C.violet },
-];
+type Subject = { name: string; sessions: number; pct: number; color: string };
 
-const BADGES = [
-  {
-    id: "b1",
-    icon: "flame" as const,
-    label: "7-Day Streak",
-    earned: true,
-    color: C.gold,
-    bg: C.goldSoft,
-  },
-  {
-    id: "b2",
-    icon: "trophy" as const,
-    label: "Top Performer",
-    earned: true,
-    color: C.indigo,
-    bg: C.indigoSoft,
-  },
-  {
-    id: "b3",
-    icon: "ribbon" as const,
-    label: "Certified Pro",
-    earned: true,
-    color: C.emerald,
-    bg: C.emeraldSoft,
-  },
-  {
-    id: "b4",
-    icon: "star" as const,
-    label: "Perfect Score",
-    earned: false,
-    color: C.gold,
-    bg: C.goldSoft,
-  },
-  {
-    id: "b5",
-    icon: "rocket" as const,
-    label: "30-Day Streak",
-    earned: false,
-    color: C.violet,
-    bg: C.violetSoft,
-  },
-  {
-    id: "b6",
-    icon: "school" as const,
-    label: "20 Sessions",
-    earned: false,
-    color: C.sky,
-    bg: C.skySoft,
-  },
-];
+type Badge = {
+  id: string;
+  icon: any;
+  label: string;
+  earned: boolean;
+  color: string;
+  bg: string;
+};
 
-const ACTIVITY = [
-  {
-    id: "a1",
-    title: "Mathematics — Ananya Sharma",
-    sub: "Completed · 1 hr",
-    time: "Today",
-    icon: "school" as const,
-    color: C.gold,
-    bg: C.goldSoft,
-  },
-  {
-    id: "a2",
-    title: "Physics Unit Test",
-    sub: "Score: 88/100",
-    time: "Yesterday",
-    icon: "clipboard" as const,
-    color: C.emerald,
-    bg: C.emeraldSoft,
-  },
-  {
-    id: "a3",
-    title: "Algebra Fundamentals",
-    sub: "Certificate earned",
-    time: "2 days ago",
-    icon: "ribbon" as const,
-    color: C.indigo,
-    bg: C.indigoSoft,
-  },
-  {
-    id: "a4",
-    title: "English Literature — Priya",
-    sub: "Completed · 1.5 hr",
-    time: "3 days ago",
-    icon: "school" as const,
-    color: C.gold,
-    bg: C.goldSoft,
-  },
-  {
-    id: "a5",
-    title: "Chemistry Mock Exam",
-    sub: "Score: 74/100",
-    time: "4 days ago",
-    icon: "clipboard" as const,
-    color: C.teal,
-    bg: C.tealSoft,
-  },
-];
+type Activity = {
+  id: string;
+  title: string;
+  sub: string;
+  time: string;
+  icon: any;
+  color: string;
+  bg: string;
+};
 
 // ─── Animated progress bar ────────────────────────────────────────────────────
 function AnimBar({
@@ -301,7 +184,7 @@ const heroChipStyles = StyleSheet.create({
 });
 
 // ─── Stat card (goal tracker row) ────────────────────────────────────────────
-function GoalRow({ stat, delay }: { stat: (typeof STATS)[0]; delay: number }) {
+function GoalRow({ stat, delay }: { stat: Stat; delay: number }) {
   const fade = useRef(new Animated.Value(0)).current;
   const tx = useRef(new Animated.Value(16)).current;
   const pct = Math.round((stat.value / stat.total) * 100);
@@ -358,29 +241,33 @@ function GoalRow({ stat, delay }: { stat: (typeof STATS)[0]; delay: number }) {
 // ─── Weekly bar chart ─────────────────────────────────────────────────────────
 const BAR_MAX = 80;
 
-function WeekChart() {
-  const anims = useRef(WEEK_DATA.map(() => new Animated.Value(0))).current;
+function WeekChart({ data }: { data: WeekDay[] }) {
+  const anims = useRef(data.map(() => new Animated.Value(0))).current;
   const today = new Date().getDay(); // 0=Sun
 
   useEffect(() => {
-    WEEK_DATA.forEach((d, i) => {
-      Animated.timing(anims[i], {
-        toValue: d.pct,
-        duration: 600,
-        delay: 300 + i * 60,
-        useNativeDriver: false,
-      }).start();
+    data.forEach((d, i) => {
+      if (anims[i]) {
+        Animated.timing(anims[i], {
+          toValue: d.pct,
+          duration: 600,
+          delay: 300 + i * 60,
+          useNativeDriver: false,
+        }).start();
+      }
     });
-  }, []);
+  }, [data]);
 
   return (
     <View style={styles.chartWrap}>
-      {WEEK_DATA.map((d, i) => {
+      {data.map((d, i) => {
         const isToday = i === (today === 0 ? 6 : today - 1);
-        const barH = anims[i].interpolate({
-          inputRange: [0, 1],
-          outputRange: [3, BAR_MAX],
-        });
+        const barH = anims[i]
+          ? anims[i].interpolate({
+              inputRange: [0, 1],
+              outputRange: [3, BAR_MAX],
+            })
+          : 3;
         return (
           <View key={d.day} style={styles.chartCol}>
             {d.sessions > 0 && (
@@ -422,7 +309,7 @@ function SubjectRow({
   sub,
   delay,
 }: {
-  sub: (typeof SUBJECTS)[0];
+  sub: Subject;
   delay: number;
 }) {
   return (
@@ -442,7 +329,7 @@ function SubjectRow({
 }
 
 // ─── Badge tile ───────────────────────────────────────────────────────────────
-function BadgeTile({ badge }: { badge: (typeof BADGES)[0] }) {
+function BadgeTile({ badge }: { badge: Badge }) {
   return (
     <View style={[styles.badgeTile, !badge.earned && { opacity: 0.4 }]}>
       <View style={[styles.badgeIcon, { backgroundColor: badge.bg }]}>
@@ -461,7 +348,7 @@ function BadgeTile({ badge }: { badge: (typeof BADGES)[0] }) {
 }
 
 // ─── Activity row ─────────────────────────────────────────────────────────────
-function ActivityRow({ item }: { item: (typeof ACTIVITY)[0] }) {
+function ActivityRow({ item }: { item: Activity }) {
   return (
     <View style={styles.actRow}>
       <View style={[styles.actIcon, { backgroundColor: item.bg }]}>
@@ -511,13 +398,45 @@ function SectionCard({
 }
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
+import apiClient from "../src/services/api";
+import { API_CONFIG } from "../src/config/api";
+
 export default function LearningProgress() {
   const [tab, setTab] = useState<"week" | "month" | "all">("week");
+  const [loading, setLoading] = useState(true);
+  const [statsData, setStatsData] = useState<Stat[]>([]);
+  const [weekData, setWeekData] = useState<WeekDay[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [badges, setBadges] = useState<Badge[]>([]);
+  const [activity, setActivity] = useState<Activity[]>([]);
+  const [streak, setStreak] = useState(0);
+  const [hoursLearned, setHoursLearned] = useState(0);
 
   const heroFade = useRef(new Animated.Value(0)).current;
   const heroTY = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
+    const fetchProgress = async () => {
+      try {
+        const response = await apiClient.get(API_CONFIG.ENDPOINTS.LEARNING_PROGRESS);
+        if (response.data?.success && response.data.data) {
+          const d = response.data.data;
+          setStatsData(d.stats || []);
+          setWeekData(d.weekData || []);
+          setSubjects(d.subjects || []);
+          setBadges(d.badges || []);
+          setActivity(d.activity || []);
+          setStreak(d.streakDays || 0);
+          setHoursLearned(d.totalHoursLearned || 0);
+        }
+      } catch (e) {
+        console.error("Failed to fetch learning progress:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProgress();
+
     Animated.parallel([
       Animated.timing(heroFade, {
         toValue: 1,
@@ -533,9 +452,9 @@ export default function LearningProgress() {
     ]).start();
   }, []);
 
-  const totalPct = Math.round(
-    STATS.reduce((s, st) => s + (st.value / st.total) * 100, 0) / STATS.length,
-  );
+  const totalPct = statsData.length > 0
+    ? Math.round(statsData.reduce((s, st) => s + (st.value / st.total) * 100, 0) / statsData.length)
+    : 0;
 
   const TABS = [
     { key: "week", label: "This Week" },
@@ -543,104 +462,72 @@ export default function LearningProgress() {
     { key: "all", label: "All Time" },
   ] as const;
 
+  const totalWeeklySessions = weekData.reduce((acc, curr) => acc + (curr.sessions || 0), 0);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.root} edges={["left", "right", "bottom"]}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
+          <ActivityIndicator size="large" color={C.gold} />
+          <Text style={{ color: C.muted, fontFamily: fonts.medium, fontSize: 14 }}>
+            Loading your progress…
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root} edges={["left", "right", "bottom"]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 110 }}
       >
-        {/* ── Hero Banner ── */}
-        <View style={styles.hero}>
+        {/* ── Compact Clean Header Card ── */}
+        <Animated.View
+          style={[
+            styles.cleanHeaderWrap,
+            { opacity: heroFade, transform: [{ translateY: heroTY }] },
+          ]}
+        >
           <LinearGradient
-            colors={[C.navy, C.navyMid, C.navyLight]}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.orb1} />
-          <View style={styles.orb2} />
-
-          <Animated.View
-            style={[
-              styles.heroInner,
-              { opacity: heroFade, transform: [{ translateY: heroTY }] },
-            ]}
+            colors={[C.navy, C.navyMid]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.cleanHeaderCard}
           >
-            {/* ── Row 1: title + streak ── */}
-            <View style={styles.heroTopRow}>
+            <View style={styles.cleanHeaderTop}>
               <View>
-                <Text style={styles.heroEyebrow}>LEARNING INDEX</Text>
-                <Text style={styles.heroHeadline}>Your Progress</Text>
+                <Text style={styles.cleanHeaderEyebrow}>OVERALL INDEX</Text>
+                <Text style={styles.cleanHeaderTitle}>Learning Progress</Text>
               </View>
-              <View style={styles.streakPill}>
-                <Ionicons name="flame" size={12} color={C.gold} />
-                <Text style={styles.streakText}>4-Day Streak</Text>
+              <View style={styles.cleanStreakPill}>
+                <Ionicons name="flame" size={13} color={C.gold} />
+                <Text style={styles.cleanStreakText}>{streak}-Day Streak</Text>
               </View>
             </View>
 
-            {/* ── Row 2: big % + overall bar ── */}
-            <View style={styles.heroCenterRow}>
-              <View style={styles.heroPctBlock}>
-                <Text style={styles.heroBigPct}>
+            <View style={styles.cleanHeaderCenter}>
+              <View style={styles.cleanPctBlock}>
+                <Text style={styles.cleanBigPct}>
                   {totalPct}
-                  <Text style={styles.heroBigPctSym}>%</Text>
+                  <Text style={styles.cleanBigSym}>%</Text>
                 </Text>
-                <Text style={styles.heroOnTrack}>ON TRACK</Text>
               </View>
-              <View style={styles.heroBarBlock}>
-                <View style={styles.heroBarMeta}>
-                  <Text style={styles.heroBarLabel}>Overall completion</Text>
-                  <Text style={styles.heroBarPct}>{totalPct}%</Text>
+              <View style={styles.cleanBarBlock}>
+                <View style={styles.cleanBarMeta}>
+                  <Text style={styles.cleanBarLabel}>{hoursLearned} hours learned</Text>
+                  <Text style={styles.cleanBarPct}>{totalPct}% completed</Text>
                 </View>
-                <View style={styles.heroBarTrack}>
+                <View style={styles.cleanTrack}>
                   <Animated.View
-                    style={[styles.heroBarFill, { width: `${totalPct}%` }]}
+                    style={[styles.cleanFill, { width: `${totalPct}%` }]}
                   />
                 </View>
-                <View style={styles.heroMiniStats}>
-                  {STATS.map((s) => (
-                    <View key={s.label} style={styles.heroMiniStat}>
-                      <View
-                        style={[
-                          styles.heroMiniDot,
-                          { backgroundColor: s.color },
-                        ]}
-                      />
-                      <Text style={styles.heroMiniVal}>
-                        {s.value}
-                        <Text style={styles.heroMiniOf}>/{s.total}</Text>
-                      </Text>
-                      <Text style={styles.heroMiniLabel}>{s.label}</Text>
-                    </View>
-                  ))}
-                </View>
               </View>
             </View>
-
-            {/* ── Row 3: 3 quick chips ── */}
-            <View style={styles.heroChipsRow}>
-              <HeroChip
-                icon="calendar-outline"
-                value="12"
-                label="Sessions"
-                color={C.sky}
-                bg="rgba(14,165,233,0.18)"
-              />
-              <HeroChip
-                icon="flash-outline"
-                value="9"
-                label="This Week"
-                color={C.gold}
-                bg="rgba(232,168,56,0.18)"
-              />
-              <HeroChip
-                icon="star-outline"
-                value="88%"
-                label="Best Score"
-                color={C.emerald}
-                bg="rgba(16,185,129,0.18)"
-              />
-            </View>
-          </Animated.View>
-        </View>
+          </LinearGradient>
+        </Animated.View>
 
         {/* ── Period Tabs ── */}
         <View style={styles.tabShell}>
@@ -667,10 +554,10 @@ export default function LearningProgress() {
 
         {/* ── Goals Tracker ── */}
         <SectionCard title="Goals Tracker" icon="flag">
-          {STATS.map((st, i) => (
+          {statsData.map((st, i) => (
             <React.Fragment key={st.label}>
               <GoalRow stat={st} delay={i * 80} />
-              {i < STATS.length - 1 && <View style={styles.rowDivider} />}
+              {i < statsData.length - 1 && <View style={styles.rowDivider} />}
             </React.Fragment>
           ))}
         </SectionCard>
@@ -680,7 +567,7 @@ export default function LearningProgress() {
           <View style={styles.chartMeta}>
             <Text style={styles.chartMetaText}>
               <Text style={{ fontFamily: fonts.extraBold, color: C.ink }}>
-                9{" "}
+                {totalWeeklySessions}{" "}
               </Text>
               sessions this week
             </Text>
@@ -696,7 +583,7 @@ export default function LearningProgress() {
               <Text style={styles.legendText}>Sessions</Text>
             </View>
           </View>
-          <WeekChart />
+          <WeekChart data={weekData} />
         </SectionCard>
 
         {/* ── Subject Breakdown ── */}
@@ -707,7 +594,7 @@ export default function LearningProgress() {
               Progress
             </Text>
           </View>
-          {SUBJECTS.map((s, i) => (
+          {subjects.map((s, i) => (
             <SubjectRow key={s.name} sub={s} delay={200 + i * 100} />
           ))}
         </SectionCard>
@@ -715,7 +602,7 @@ export default function LearningProgress() {
         {/* ── Achievements ── */}
         <SectionCard title="Achievements" icon="trophy" action="See all">
           <View style={styles.badgesGrid}>
-            {BADGES.map((b) => (
+            {badges.map((b) => (
               <BadgeTile key={b.id} badge={b} />
             ))}
           </View>
@@ -723,10 +610,10 @@ export default function LearningProgress() {
 
         {/* ── Recent Activity ── */}
         <SectionCard title="Recent Activity" icon="time" action="View all">
-          {ACTIVITY.map((item, i) => (
+          {activity.map((item, i) => (
             <React.Fragment key={item.id}>
               <ActivityRow item={item} />
-              {i < ACTIVITY.length - 1 && <View style={styles.rowDivider} />}
+              {i < activity.length - 1 && <View style={styles.rowDivider} />}
             </React.Fragment>
           ))}
         </SectionCard>
@@ -739,55 +626,103 @@ export default function LearningProgress() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
 
-  // Hero
-  hero: {
-    overflow: "hidden",
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 24,
+  // Clean Header Card
+  cleanHeaderWrap: {
+    marginHorizontal: 16,
+    marginTop: 12,
     marginBottom: 4,
   },
-  orb1: {
-    position: "absolute",
-    top: -50,
-    right: -30,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "rgba(232,168,56,0.07)",
+  cleanHeaderCard: {
+    borderRadius: 20,
+    padding: 16,
+    overflow: "hidden",
+    shadowColor: C.navy,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  orb2: {
-    position: "absolute",
-    bottom: -30,
-    left: -20,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(99,102,241,0.06)",
+  cleanHeaderTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
   },
-  heroInner: { gap: 16 },
-
-  // Row 1
-  heroTopRow: {
+  cleanHeaderEyebrow: {
+    fontSize: 9,
+    fontFamily: fonts.bold,
+    color: C.gold,
+    letterSpacing: 1.5,
+    marginBottom: 2,
+  },
+  cleanHeaderTitle: {
+    fontSize: 18,
+    fontFamily: fonts.bold,
+    color: C.white,
+  },
+  cleanStreakPill: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 4,
+    backgroundColor: "rgba(232,168,56,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(232,168,56,0.3)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
   },
-  heroEyebrow: {
-    fontSize: 9,
-    fontFamily: fonts.extraBold,
+  cleanStreakText: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
     color: C.gold,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    marginBottom: 3,
   },
-  heroHeadline: {
-    fontSize: 22,
+  cleanHeaderCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  cleanPctBlock: {
+    alignItems: "center",
+  },
+  cleanBigPct: {
+    fontSize: 32,
     fontFamily: fonts.extraBold,
     color: C.white,
-    letterSpacing: -0.2,
+    lineHeight: 36,
+  },
+  cleanBigSym: {
+    fontSize: 18,
+    color: C.gold,
+  },
+  cleanBarBlock: {
+    flex: 1,
+    gap: 6,
+  },
+  cleanBarMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cleanBarLabel: {
+    fontSize: 11,
+    fontFamily: fonts.medium,
+    color: "rgba(255,255,255,0.7)",
+  },
+  cleanBarPct: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    color: C.gold,
+  },
+  cleanTrack: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  cleanFill: {
+    height: "100%",
+    backgroundColor: C.gold,
+    borderRadius: 3,
   },
   streakPill: {
     flexDirection: "row",
@@ -1043,7 +978,7 @@ const styles = StyleSheet.create({
 
   // Badges
   badgesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  badgeTile: { width: (SW - 36 - 32 - 24) / 3, alignItems: "center", gap: 8 },
+  badgeTile: { width: SW / 4, alignItems: "center", gap: 8, justifyContent: 'space-between' },
   badgeIcon: {
     width: 58,
     height: 58,

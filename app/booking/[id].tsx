@@ -11,16 +11,19 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, fonts } from "../../src/theme/colors";
+import { LinearGradient } from "expo-linear-gradient";
+import { appColors, fonts } from "../../src/theme/colors";
 import apiClient from "../../src/services/api";
 import { API_CONFIG } from "../../src/config/api";
-import { Booking, Teacher } from "../../src/types";
+import { Booking } from "../../src/types";
 import {
   formatDate,
   formatTime,
   formatCurrency,
   openWhatsApp,
 } from "../../src/utils/helpers";
+
+const P = appColors;
 
 export default function BookingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -34,10 +37,11 @@ export default function BookingDetailScreen() {
 
   const fetchBookingDetail = async () => {
     try {
+      setLoading(true);
       const response = await apiClient.get(
-        API_CONFIG.ENDPOINTS.BOOKING_DETAIL(id),
+        API_CONFIG.ENDPOINTS.BOOKING_DETAIL(id)
       );
-      if (response.data.data) {
+      if (response.data?.data) {
         setBooking(response.data.data);
       }
     } catch (error) {
@@ -59,7 +63,7 @@ export default function BookingDetailScreen() {
           style: "destructive",
           onPress: confirmCancelBooking,
         },
-      ],
+      ]
     );
   };
 
@@ -67,393 +71,310 @@ export default function BookingDetailScreen() {
     setCancelling(true);
     try {
       const response = await apiClient.patch(
-        API_CONFIG.ENDPOINTS.CANCEL_BOOKING(id),
+        API_CONFIG.ENDPOINTS.CANCEL_BOOKING(id)
       );
 
-      if (response.data.success) {
+      if (response.data?.success) {
         Alert.alert("Success", "Booking cancelled successfully", [
-          {
-            text: "OK",
-            onPress: () => router.back(),
-          },
+          { text: "OK", onPress: () => router.back() },
         ]);
       }
     } catch (error: any) {
       Alert.alert(
         "Error",
-        error.response?.data?.message || "Failed to cancel booking",
+        error.response?.data?.message || "Failed to cancel booking"
       );
     } finally {
       setCancelling(false);
     }
   };
 
+  const teacher = typeof booking?.teacher === "object" ? booking.teacher : null;
+
   const handleContactTeacher = () => {
-    const teacher =
-      typeof booking?.teacher === "object" ? booking.teacher : null;
     if (teacher) {
       const message = `Hi ${teacher.name}, I have a booking with you on ${formatDate(booking!.date)}`;
-      openWhatsApp("9876543210", message); // Replace with actual teacher phone
+      openWhatsApp("9876543210", message);
     }
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.root, styles.center]}>
+        <ActivityIndicator size="large" color="#6366F1" />
+        <Text style={styles.loadingText}>Loading booking details...</Text>
       </View>
     );
   }
 
   if (!booking) {
     return (
-      <View style={styles.errorContainer}>
+      <View style={[styles.root, styles.center]}>
+        <Ionicons name="alert-circle-outline" size={48} color="#9CA3AF" />
         <Text style={styles.errorText}>Booking not found</Text>
       </View>
     );
   }
 
-  const teacher = typeof booking.teacher === "object" ? booking.teacher : null;
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case "upcoming":
-        return colors.info;
       case "completed":
-        return colors.success;
+        return { label: "Completed", bg: "#ECFDF5", color: "#059669" };
       case "cancelled":
-        return colors.error;
+        return { label: "Cancelled", bg: "#FEE2E2", color: "#DC2626" };
       default:
-        return colors.gray[500];
+        return { label: "Confirmed", bg: "#EEF2FF", color: "#4F46E5" };
     }
   };
 
+  const statusBadge = getStatusBadge(booking.status);
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusColor(booking.status) + "20" },
-          ]}
-        >
-          <Text
-            style={[
-              styles.statusText,
-              { color: getStatusColor(booking.status) },
-            ]}
-          >
-            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+    <View style={styles.root}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
+      >
+        {/* Status Badge Banner */}
+        <View style={styles.statusRow}>
+          <View style={[styles.statusBadge, { backgroundColor: statusBadge.bg }]}>
+            <Ionicons name="ellipse" size={8} color={statusBadge.color} />
+            <Text style={[styles.statusText, { color: statusBadge.color }]}>
+              {statusBadge.label}
+            </Text>
+          </View>
+          <Text style={styles.bookingIdText}>
+            ID: #{booking._id ? booking._id.slice(-8).toUpperCase() : ""}
           </Text>
         </View>
-      </View>
 
-      {/* Teacher Info */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Teacher Details</Text>
-        <View style={styles.teacherCard}>
-          {teacher?.profileImage ? (
-            <Image
-              source={{ uri: teacher.profileImage }}
-              style={styles.avatar}
-            />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={32} color={colors.gray[400]} />
-            </View>
-          )}
-          <View style={styles.teacherInfo}>
-            <Text style={styles.teacherName}>{teacher?.name || "Teacher"}</Text>
-            {teacher && (
-              <View style={styles.rating}>
-                <Ionicons name="star" size={16} color={colors.warning} />
-                <Text style={styles.ratingText}>
-                  {teacher.rating.toFixed(1)}
-                </Text>
+        {/* Teacher Card */}
+        {teacher && (
+          <View style={styles.card}>
+            <View style={styles.teacherRow}>
+              {teacher.profileImage ? (
+                <Image source={{ uri: teacher.profileImage }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarText}>{teacher.name?.[0] || "T"}</Text>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.teacherName}>{teacher.name}</Text>
+                <Text style={styles.teacherSub}>{teacher.subject || "Teacher"}</Text>
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={14} color="#E8A838" />
+                  <Text style={styles.ratingText}>{teacher.rating ? teacher.rating.toFixed(1) : "4.8"}</Text>
+                </View>
               </View>
-            )}
+
+              <TouchableOpacity
+                style={styles.waBtn}
+                onPress={handleContactTeacher}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
+              </TouchableOpacity>
+            </View>
           </View>
+        )}
+
+        {/* Session Details Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Session Details</Text>
+
+          <View style={styles.infoRow}>
+            <View style={styles.iconBox}>
+              <Ionicons name="calendar-outline" size={16} color="#6366F1" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.infoLabel}>Date</Text>
+              <Text style={styles.infoVal}>{formatDate(booking.date)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <View style={styles.iconBox}>
+              <Ionicons name="time-outline" size={16} color="#6366F1" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.infoLabel}>Time Slot</Text>
+              <Text style={styles.infoVal}>
+                {formatTime(booking.timeSlot.startTime)} - {formatTime(booking.timeSlot.endTime)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+            <View style={styles.iconBox}>
+              <Ionicons
+                name={booking.mode === "online" ? "videocam-outline" : "location-outline"}
+                size={16}
+                color="#6366F1"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.infoLabel}>Mode</Text>
+              <Text style={styles.infoVal}>
+                {booking.mode === "online" ? "Online Video Class" : "In-Person Class"}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Payment Breakdown Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Payment Breakdown</Text>
+
+          <View style={styles.payRow}>
+            <Text style={styles.payLabel}>Total Session Fee</Text>
+            <Text style={styles.payVal}>{formatCurrency(booking.amount)}</Text>
+          </View>
+
+          <View style={styles.payRow}>
+            <Text style={styles.payLabel}>Advance Paid</Text>
+            <Text style={[styles.payVal, { color: "#10B981" }]}>
+              {formatCurrency(booking.advancePaid)}
+            </Text>
+          </View>
+
+          <View style={[styles.payRow, { borderTopWidth: 1, borderTopColor: "#F3F4F6", paddingTop: 10, marginTop: 4 }]}>
+            <Text style={styles.payTotalLabel}>Remaining Amount</Text>
+            <Text style={styles.payTotalVal}>
+              {formatCurrency(booking.remainingAmount)}
+            </Text>
+          </View>
+          <Text style={styles.payNote}>* Remaining balance is settled after session completion.</Text>
+        </View>
+
+        {/* Action Buttons */}
+        {((booking.status as string) === "completed" || (booking.status as string) === "confirmed") && (
           <TouchableOpacity
-            style={styles.contactButton}
-            onPress={handleContactTeacher}
+            style={styles.rateBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/rate-session",
+                params: {
+                  appointmentId: booking._id,
+                  teacherId: teacher?._id,
+                  teacherName: teacher?.name,
+                  subject: teacher?.subject,
+                },
+              })
+            }
+            activeOpacity={0.85}
           >
-            <Ionicons name="logo-whatsapp" size={24} color={colors.success} />
+            <LinearGradient colors={["#E8A838", "#C47F0A"]} style={styles.rateGrad}>
+              <Ionicons name="star" size={18} color="#fff" />
+              <Text style={styles.rateBtnText}>Rate & Review Session</Text>
+            </LinearGradient>
           </TouchableOpacity>
-        </View>
-      </View>
+        )}
 
-      {/* Booking Details */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Session Details</Text>
-
-        <View style={styles.detailRow}>
-          <View style={styles.iconLabel}>
-            <Ionicons
-              name="calendar-outline"
-              size={20}
-              color={colors.primary}
-            />
-            <Text style={styles.label}>Date</Text>
-          </View>
-          <Text style={styles.value}>{formatDate(booking.date)}</Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <View style={styles.iconLabel}>
-            <Ionicons name="time-outline" size={20} color={colors.primary} />
-            <Text style={styles.label}>Time</Text>
-          </View>
-          <Text style={styles.value}>
-            {formatTime(booking.timeSlot.startTime)} -{" "}
-            {formatTime(booking.timeSlot.endTime)}
-          </Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <View style={styles.iconLabel}>
-            <Ionicons
-              name={
-                booking.mode === "online"
-                  ? "videocam-outline"
-                  : "location-outline"
-              }
-              size={20}
-              color={colors.primary}
-            />
-            <Text style={styles.label}>Mode</Text>
-          </View>
-          <Text style={styles.value}>
-            {booking.mode === "online" ? "Online" : "Offline"}
-          </Text>
-        </View>
-      </View>
-
-      {/* Payment Details */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Payment Details</Text>
-
-        <View style={styles.paymentRow}>
-          <Text style={styles.paymentLabel}>Total Amount</Text>
-          <Text style={styles.paymentValue}>
-            {formatCurrency(booking.amount)}
-          </Text>
-        </View>
-
-        <View style={styles.paymentRow}>
-          <Text style={styles.paymentLabel}>Advance Paid</Text>
-          <Text style={[styles.paymentValue, { color: colors.success }]}>
-            {formatCurrency(booking.advancePaid)}
-          </Text>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.paymentRow}>
-          <Text style={styles.totalLabel}>Remaining Amount</Text>
-          <Text style={styles.totalValue}>
-            {formatCurrency(booking.remainingAmount)}
-          </Text>
-        </View>
-
-        <Text style={styles.note}>* To be paid after session completion</Text>
-      </View>
-
-      {/* Cancel Button */}
-      {booking.status === "upcoming" && (
-        <View style={styles.actions}>
+        {((booking.status as string) === "upcoming" || (booking.status as string) === "pending") && (
           <TouchableOpacity
-            style={[styles.cancelButton, cancelling && styles.buttonDisabled]}
+            style={[styles.cancelBtn, cancelling && { opacity: 0.5 }]}
             onPress={handleCancelBooking}
             disabled={cancelling}
+            activeOpacity={0.7}
           >
             {cancelling ? (
-              <ActivityIndicator color={colors.error} />
+              <ActivityIndicator color="#EF4444" />
             ) : (
               <>
-                <Ionicons
-                  name="close-circle-outline"
-                  size={20}
-                  color={colors.error}
-                />
-                <Text style={styles.cancelButtonText}>Cancel Booking</Text>
+                <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                <Text style={styles.cancelBtnText}>Cancel Booking</Text>
               </>
             )}
           </TouchableOpacity>
-        </View>
-      )}
-
-      <View style={{ height: 24 }} />
-    </ScrollView>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.gray[50],
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.gray[50],
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.gray[50],
-  },
-  errorText: {
-    fontSize: 16,
-    color: colors.gray[600],
-  },
-  header: {
-    backgroundColor: colors.white,
+  root: { flex: 1, backgroundColor: "#F5F6FA" },
+  center: { justifyContent: "center", alignItems: "center" },
+  loadingText: { marginTop: 12, fontSize: 13, fontFamily: fonts.medium, color: "#6B7280" },
+  errorText: { fontSize: 16, fontFamily: fonts.semiBold, color: "#374151" },
+  statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  statusBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  statusText: { fontSize: 12, fontFamily: fonts.bold },
+  bookingIdText: { fontSize: 12, fontFamily: fonts.semiBold, color: "#6B7280" },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
     padding: 16,
-    alignItems: "center",
-  },
-  statusBadge: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  statusText: {
-    fontSize: 14,
-    fontFamily: fonts.semiBold,
-  },
-  section: {
-    backgroundColor: colors.white,
-    marginTop: 16,
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: fonts.semiBold,
-    color: colors.gray[900],
     marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  teacherCard: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-  },
+  teacherRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  avatar: { width: 52, height: 52, borderRadius: 26 },
   avatarPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.gray[200],
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#6366F1",
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
   },
-  teacherInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  teacherName: {
-    fontSize: 18,
-    fontFamily: fonts.semiBold,
-    color: colors.gray[900],
-    marginBottom: 4,
-  },
-  rating: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  ratingText: {
-    fontSize: 14,
-    color: colors.gray[600],
-    marginLeft: 4,
-  },
-  contactButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.white,
+  avatarText: { color: "#fff", fontSize: 20, fontFamily: fonts.bold },
+  teacherName: { fontSize: 16, fontFamily: fonts.bold, color: "#111827" },
+  teacherSub: { fontSize: 13, fontFamily: fonts.medium, color: "#6B7280", marginTop: 2 },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  ratingText: { fontSize: 12, fontFamily: fonts.semiBold, color: "#374151" },
+  waBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#ECFDF5",
     borderWidth: 1,
-    borderColor: colors.success,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  detailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  iconLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  label: {
-    fontSize: 14,
-    color: colors.gray[600],
-    marginLeft: 8,
-  },
-  value: {
-    fontSize: 14,
-    fontFamily: fonts.medium,
-    color: colors.gray[900],
-  },
-  paymentRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  paymentLabel: {
-    fontSize: 14,
-    color: colors.gray[600],
-  },
-  paymentValue: {
-    fontSize: 14,
-    fontFamily: fonts.medium,
-    color: colors.gray[900],
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.gray[200],
-    marginVertical: 12,
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontFamily: fonts.semiBold,
-    color: colors.gray[900],
-  },
-  totalValue: {
-    fontSize: 18,
-    fontFamily: fonts.bold,
-    color: colors.primary,
-  },
-  note: {
-    fontSize: 12,
-    color: colors.gray[500],
-    fontStyle: "italic",
-    marginTop: 8,
-  },
-  actions: {
-    paddingHorizontal: 20,
-    marginTop: 16,
-  },
-  cancelButton: {
-    flexDirection: "row",
+    borderColor: "#A7F3D0",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.white,
-    paddingVertical: 14,
+  },
+  cardTitle: { fontSize: 15, fontFamily: fonts.bold, color: "#111827", marginBottom: 12 },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  iconBox: {
+    width: 32,
+    height: 32,
     borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  infoLabel: { fontSize: 11, fontFamily: fonts.medium, color: "#6B7280" },
+  infoVal: { fontSize: 13, fontFamily: fonts.semiBold, color: "#111827", marginTop: 1 },
+  payRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8 },
+  payLabel: { fontSize: 13, fontFamily: fonts.regular, color: "#6B7280" },
+  payVal: { fontSize: 13, fontFamily: fonts.semiBold, color: "#111827" },
+  payTotalLabel: { fontSize: 14, fontFamily: fonts.bold, color: "#111827" },
+  payTotalVal: { fontSize: 16, fontFamily: fonts.bold, color: "#4F46E5" },
+  payNote: { fontSize: 11, fontFamily: fonts.regular, color: "#9CA3AF", fontStyle: "italic", marginTop: 6 },
+  rateBtn: { borderRadius: 14, overflow: "hidden", marginBottom: 12 },
+  rateGrad: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 15 },
+  rateBtnText: { color: "#fff", fontFamily: fonts.bold, fontSize: 15 },
+  cancelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: colors.error,
-    gap: 8,
+    borderColor: "#FCA5A5",
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontFamily: fonts.semiBold,
-    color: colors.error,
-  },
+  cancelBtnText: { color: "#EF4444", fontFamily: fonts.semiBold, fontSize: 14 },
 });

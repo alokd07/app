@@ -769,19 +769,19 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   radialOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(2,8,23,0.3)",
   },
   vignette: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(1,4,9,0.6)",
   },
   brandPattern: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.02,
   },
   meshOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.15,
   },
 
@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
     left: width * 0.5 - width * 0.6,
   },
   gridContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: "space-around",
     opacity: 0.05,
   },

@@ -40,120 +40,6 @@ const P = {
   goldSoft: appColors.goldPale,
 };
 
-const sampleBookings = [
-  {
-    _id: "b1",
-    status: "upcoming",
-    date: "2026-04-05",
-    timeSlot: { startTime: "14:00", endTime: "15:00" },
-    mode: "online",
-    advancePaid: 500,
-    teacher: {
-      _id: "t1",
-      name: "Ananya Sharma",
-      subject: "Mathematics",
-      profileImage: "https://randomuser.me/api/portraits/women/44.jpg",
-    },
-  },
-  {
-    _id: "b2",
-    status: "upcoming",
-    date: "2026-04-08",
-    timeSlot: { startTime: "10:30", endTime: "11:30" },
-    mode: "offline",
-    advancePaid: 600,
-    teacher: {
-      _id: "t2",
-      name: "Priya Singh",
-      subject: "English Literature",
-      profileImage: "https://randomuser.me/api/portraits/women/68.jpg",
-    },
-  },
-  {
-    _id: "b3",
-    status: "upcoming",
-    date: "2026-04-12",
-    timeSlot: { startTime: "16:00", endTime: "17:00" },
-    mode: "online",
-    advancePaid: 550,
-    teacher: {
-      _id: "t3",
-      name: "Rahul Verma",
-      subject: "Physics",
-      profileImage: "https://randomuser.me/api/portraits/men/32.jpg",
-    },
-  },
-  {
-    _id: "b4",
-    status: "completed",
-    date: "2026-03-28",
-    timeSlot: { startTime: "15:00", endTime: "16:00" },
-    mode: "online",
-    advancePaid: 500,
-    teacher: {
-      _id: "t1",
-      name: "Ananya Sharma",
-      subject: "Mathematics",
-      profileImage: "https://randomuser.me/api/portraits/women/44.jpg",
-    },
-  },
-  {
-    _id: "b5",
-    status: "completed",
-    date: "2026-03-25",
-    timeSlot: { startTime: "11:00", endTime: "12:00" },
-    mode: "offline",
-    advancePaid: 600,
-    teacher: {
-      _id: "t2",
-      name: "Priya Singh",
-      subject: "English Literature",
-      profileImage: "https://randomuser.me/api/portraits/women/68.jpg",
-    },
-  },
-  {
-    _id: "b6",
-    status: "completed",
-    date: "2026-03-20",
-    timeSlot: { startTime: "14:30", endTime: "15:30" },
-    mode: "online",
-    advancePaid: 550,
-    teacher: {
-      _id: "t4",
-      name: "Neha Gupta",
-      subject: "Biology",
-      profileImage: "https://randomuser.me/api/portraits/women/12.jpg",
-    },
-  },
-  {
-    _id: "b7",
-    status: "cancelled",
-    date: "2026-03-22",
-    timeSlot: { startTime: "09:00", endTime: "10:00" },
-    mode: "online",
-    advancePaid: 500,
-    teacher: {
-      _id: "t5",
-      name: "Arjun Mehta",
-      subject: "Chemistry",
-      profileImage: "https://randomuser.me/api/portraits/men/76.jpg",
-    },
-  },
-  {
-    _id: "b8",
-    status: "cancelled",
-    date: "2026-03-18",
-    timeSlot: { startTime: "13:00", endTime: "14:00" },
-    mode: "offline",
-    advancePaid: 650,
-    teacher: {
-      _id: "t3",
-      name: "Rahul Verma",
-      subject: "Physics",
-      profileImage: "https://randomuser.me/api/portraits/men/32.jpg",
-    },
-  },
-];
 
 // ─── Component: Interactive Tab ──────────────────────────────────────────────
 function TabBar({
@@ -163,13 +49,13 @@ function TabBar({
   activeTab: string;
   onTabChange: (tab: any) => void;
 }) {
-  const tabs = ["upcoming", "completed", "cancelled"];
+  const tabs = ["upcoming", "demos", "completed", "cancelled"];
   const translateX = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const index = tabs.indexOf(activeTab);
     Animated.spring(translateX, {
-      toValue: index * ((width - 40) / 3),
+      toValue: index * ((width - 40) / 4),
       useNativeDriver: true,
       tension: 50,
       friction: 9,
@@ -179,7 +65,7 @@ function TabBar({
   return (
     <View style={styles.tabContainer}>
       <Animated.View
-        style={[styles.tabSlider, { transform: [{ translateX }] }]}
+        style={[styles.tabSlider, { width: (width - 40) / 4, transform: [{ translateX }] }]}
       />
       {tabs.map((tab) => (
         <TouchableOpacity
@@ -198,6 +84,75 @@ function TabBar({
         </TouchableOpacity>
       ))}
     </View>
+  );
+}
+
+// ─── Component: Demo Pass Card ────────────────────────────────────────────────
+function DemoCard({ item, index }: { item: any; index: number }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 300, delay: index * 60, useNativeDriver: true }).start();
+  }, []);
+
+  const badgeColor =
+    item.status === "accepted" ? "#10B981" : item.status === "pending" ? "#F59E0B" : item.status === "rejected" ? "#EF4444" : "#6B7280";
+
+  return (
+    <Animated.View style={{ opacity: fadeAnim }}>
+      <TouchableOpacity
+        style={styles.passCard}
+        activeOpacity={0.9}
+        onPress={() => router.push(`/demo/${item._id}`)}
+      >
+        <View style={[styles.passLeft, { backgroundColor: badgeColor }]} />
+        <View style={styles.passMain}>
+          <View style={styles.passHeader}>
+            <View style={styles.teacherRow}>
+              {item.teacher?.profileImage ? (
+                <Image source={{ uri: item.teacher.profileImage }} style={styles.avatarImg} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarText}>{item.teacher?.name?.[0] || "T"}</Text>
+                </View>
+              )}
+              <View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={styles.teacherNameNew}>{item.teacher?.name || "Teacher"}</Text>
+                  <View style={{ backgroundColor: item.isFree ? "#ECFDF5" : "#FFFBEB", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                    <Text style={{ fontSize: 10, fontFamily: "Manrope_700Bold", color: item.isFree ? "#059669" : "#B45309" }}>
+                      {item.isFree ? "FREE DEMO" : `₹${item.amount}`}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.teacherSubNew}>{item.teacher?.subject || "Demo Class"}</Text>
+              </View>
+            </View>
+            <View style={[styles.modeBadgeNew, { backgroundColor: `${badgeColor}15` }]}>
+              <Text style={[styles.modeTextNew, { color: badgeColor }]}>
+                {item.status.toUpperCase()}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.passDivider} />
+
+          <View style={styles.passDetails}>
+            <View style={styles.detailItem}>
+              <Ionicons name="calendar-outline" size={14} color={P.muted} />
+              <Text style={styles.detailText}>
+                {new Date(item.requestedDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
+              </Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Ionicons name="time-outline" size={14} color={P.muted} />
+              <Text style={styles.detailText}>
+                {item.requestedTime?.startTime} - {item.requestedTime?.endTime}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -298,6 +253,7 @@ function BookingCard({ item, index }: { item: any; index: number }) {
 export default function BookingsScreen() {
   const [activeTab, setActiveTab] = useState("upcoming");
   const [bookings, setBookings] = useState<any[]>([]);
+  const [demos, setDemos] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const user = useAuthStore((state) => state.user);
@@ -305,11 +261,17 @@ export default function BookingsScreen() {
   const fetchBookings = async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      const response = await apiClient.get(API_CONFIG.ENDPOINTS.MY_BOOKINGS);
-      if (response.data?.success && response.data?.data) {
-        setBookings(response.data.data);
-      } else if (Array.isArray(response.data)) {
-        setBookings(response.data);
+      const [bRes, dRes] = await Promise.all([
+        apiClient.get(API_CONFIG.ENDPOINTS.MY_BOOKINGS).catch(() => null),
+        apiClient.get(API_CONFIG.ENDPOINTS.MY_DEMOS).catch(() => null),
+      ]);
+      if (bRes?.data?.success && Array.isArray(bRes.data.data)) {
+        setBookings(bRes.data.data);
+      } else if (Array.isArray(bRes?.data)) {
+        setBookings(bRes.data);
+      }
+      if (dRes?.data?.success && Array.isArray(dRes.data.data)) {
+        setDemos(dRes.data.data);
       }
     } catch (error) {
       console.error("Error fetching bookings:", error);
@@ -406,30 +368,47 @@ export default function BookingsScreen() {
       <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* ── List ── */}
-      <FlatList
-        data={getFilteredBookings()}
-        keyExtractor={(item) => item._id}
-        renderItem={({ item, index }) => (
-          <BookingCard item={item} index={index} />
-        )}
-        contentContainerStyle={styles.listPadding}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[P.gold]}
-            tintColor={P.gold}
-          />
-        }
-        ListEmptyComponent={
-          loading ? (
-            <ActivityIndicator size="large" color={P.gold} style={{ marginTop: 40 }} />
-          ) : (
-            <Text style={styles.emptyText}>No sessions found.</Text>
-          )
-        }
-      />
+      {activeTab === "demos" ? (
+        <FlatList
+          data={demos}
+          keyExtractor={(item) => item._id}
+          renderItem={({ item, index }) => (
+            <DemoCard item={item} index={index} />
+          )}
+          contentContainerStyle={styles.listPadding}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[P.gold]} tintColor={P.gold} />
+          }
+          ListEmptyComponent={
+            loading ? (
+              <ActivityIndicator size="large" color={P.gold} style={{ marginTop: 40 }} />
+            ) : (
+              <Text style={styles.emptyText}>No demo requests found.</Text>
+            )
+          }
+        />
+      ) : (
+        <FlatList
+          data={getFilteredBookings()}
+          keyExtractor={(item) => item._id}
+          renderItem={({ item, index }) => (
+            <BookingCard item={item} index={index} />
+          )}
+          contentContainerStyle={styles.listPadding}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[P.gold]} tintColor={P.gold} />
+          }
+          ListEmptyComponent={
+            loading ? (
+              <ActivityIndicator size="large" color={P.gold} style={{ marginTop: 40 }} />
+            ) : (
+              <Text style={styles.emptyText}>No sessions found.</Text>
+            )
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -582,6 +561,18 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_600SemiBold",
     color: P.navy,
   },
+  avatarImg: { width: 44, height: 44, borderRadius: 22 },
+  avatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#6366F1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { color: "#fff", fontSize: 18, fontFamily: "Manrope_700Bold" },
+  teacherNameNew: { fontSize: 15, fontFamily: "Manrope_700Bold", color: P.navy },
+  teacherSubNew: { fontSize: 12, color: P.muted, marginTop: 2 },
   paidText: { fontSize: 13, fontFamily: "Manrope_700Bold", color: P.success },
   emptyText: { textAlign: "center", color: P.muted, marginTop: 40 },
 });

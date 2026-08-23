@@ -13,6 +13,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { fonts } from "@/src/theme/colors";
 import * as WebBrowser from "expo-web-browser";
+import apiClient from "@/src/services/api";
+import { API_CONFIG } from "@/src/config/api";
 
 const FAQS = [
   {
@@ -128,6 +130,29 @@ export default function HelpScreen() {
           >
             <Ionicons name="globe-outline" size={24} color="#6366F1" />
             <Text style={[styles.contactLabel, { color: "#4338CA" }]}>Web</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Raise Ticket Action */}
+        <View style={[styles.section, { marginTop: 16 }]}>
+          <TouchableOpacity
+            style={styles.raiseTicketBtn}
+            onPress={async () => {
+              try {
+                const res = await apiClient.post(API_CONFIG.ENDPOINTS.SUPPORT_TICKET, {
+                  subject: "Help Request",
+                  category: "General Inquiry",
+                  message: "Student requested support via app help screen",
+                });
+                alert(res.data?.message || "Support ticket created successfully!");
+              } catch (e) {
+                alert("Failed to submit support request. Please try again.");
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="chatbubbles-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.raiseTicketText}>Raise a Support Ticket</Text>
           </TouchableOpacity>
         </View>
 
@@ -284,4 +309,18 @@ const styles = StyleSheet.create({
     paddingRight: 24,
   },
   faqDivider: { height: 1, backgroundColor: "#F3F4F6", marginHorizontal: 16 },
+  raiseTicketBtn: {
+    backgroundColor: "#14B8A6",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 16,
+  },
+  raiseTicketText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontFamily: fonts.bold,
+  },
 });

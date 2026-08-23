@@ -390,7 +390,7 @@ const st = StyleSheet.create({
 
   // Subtle radial glow behind active icon
   iconGlow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(255,255,255,1)",
     borderRadius: 19,
   },

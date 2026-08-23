@@ -45,11 +45,7 @@ const FALLBACK: any = {
   area: "South Delhi",
 };
 
-const MOCK_REVIEWS = [
-  { id: "r1", name: "Priya M.", rating: 5, text: "Excellent teaching style, very patient and clear.", ago: "2 days ago" },
-  { id: "r2", name: "Rohan K.", rating: 5, text: "My child's scores improved significantly within a month!", ago: "1 week ago" },
-  { id: "r3", name: "Sunita D.", rating: 4, text: "Very knowledgeable. Highly recommended for Maths.", ago: "2 weeks ago" },
-];
+type Review = { id: string; name: string; rating: number; text: string; ago: string };
 
 // ─── Reusable atoms ────────────────────────────────────────────────────────────
 function StatPill({ value, label, color }: { value: string; label: string; color?: string }) {
@@ -106,7 +102,7 @@ function StarRow({ rating }: { rating: number }) {
   );
 }
 
-function ReviewCard({ review }: { review: (typeof MOCK_REVIEWS)[0] }) {
+function ReviewCard({ review }: { review: Review }) {
   return (
     <View style={atom.reviewCard}>
       <View style={atom.reviewTop}>
@@ -140,6 +136,7 @@ function LoadingScreen() {
 export default function TeacherDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [teacher, setTeacher] = useState<any | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -147,6 +144,7 @@ export default function TeacherDetailScreen() {
 
   useEffect(() => {
     fetchTeacher();
+    fetchReviews();
   }, [id]);
 
   const fetchTeacher = async () => {
@@ -158,6 +156,17 @@ export default function TeacherDetailScreen() {
       setTeacher(FALLBACK);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReviews = async () => {
+    try {
+      const res = await apiClient.get(API_CONFIG.ENDPOINTS.TEACHER_REVIEWS(id));
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setReviews(res.data.data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch reviews:', e);
     }
   };
 
@@ -339,7 +348,16 @@ export default function TeacherDetailScreen() {
 
           {/* Review cards */}
           <View style={styles.reviewList}>
-            {MOCK_REVIEWS.map((r) => <ReviewCard key={r.id} review={r} />)}
+            {reviews.length > 0 ? (
+              reviews.map((r) => <ReviewCard key={r.id} review={r} />)
+            ) : (
+              <View style={{ alignItems: "center", paddingVertical: 20 }}>
+                <Ionicons name="chatbubble-outline" size={32} color="#D1D5DB" />
+                <Text style={{ color: "#9CA3AF", marginTop: 8, fontFamily: fonts.medium, fontSize: 13 }}>
+                  No reviews yet
+                </Text>
+              </View>
+            )}
           </View>
 
           <TouchableOpacity style={styles.seeAllBtn} activeOpacity={0.8}>
@@ -361,10 +379,18 @@ export default function TeacherDetailScreen() {
           <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
         </TouchableOpacity>
 
-        {/* Book button */}
+        {/* Book Free Demo button */}
         <TouchableOpacity
           style={styles.bookBtnWrap}
-          onPress={() => router.push({ pathname: "/book-session", params: { teacherId: teacher._id } })}
+          onPress={() => router.push({
+            pathname: "/demo/request",
+            params: {
+              teacherId: teacher._id,
+              teacherName: teacher.name,
+              teacherSubject: teacher.subjects?.[0] || 'General',
+              pricePerHour: String(teacher.pricePerHour || 500),
+            },
+          })}
           activeOpacity={0.9}
         >
           <LinearGradient
@@ -373,13 +399,22 @@ export default function TeacherDetailScreen() {
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
           >
             <View>
-              <Text style={styles.bookBtnLabel}>Book a Demo</Text>
-              <Text style={styles.bookBtnSub}>Free first session</Text>
+              <Text style={styles.bookBtnLabel}>Book Free Demo</Text>
+              <Text style={styles.bookBtnSub}>No payment required</Text>
             </View>
             <View style={styles.bookBtnArrow}>
-              <Ionicons name="arrow-forward" size={16} color={P.navy} />
+              <Ionicons name="sparkles" size={16} color={P.navy} />
             </View>
           </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Direct Regular Session */}
+        <TouchableOpacity
+          style={styles.directBookBtn}
+          onPress={() => router.push({ pathname: "/book-session", params: { teacherId: teacher._id } })}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="calendar-outline" size={18} color="#4F46E5" />
         </TouchableOpacity>
       </View>
     </View>
@@ -480,7 +515,7 @@ const styles = StyleSheet.create({
 
   // Hero
   heroContainer: { height: HERO_H, overflow: "hidden" },
-  heroCover: { ...StyleSheet.absoluteFillObject },
+  heroCover: { ...StyleSheet.absoluteFill },
   heroOverlay: {
     position: "absolute", bottom: 0, left: 0, right: 0,
     padding: 20, paddingBottom: 24, gap: 6,
@@ -596,6 +631,12 @@ const styles = StyleSheet.create({
   bookBtnArrow: {
     width: 32, height: 32, borderRadius: 10,
     backgroundColor: "rgba(13,27,42,0.12)",
+    alignItems: "center", justifyContent: "center",
+  },
+  directBookBtn: {
+    width: 48, height: 48, borderRadius: 14,
+    backgroundColor: "#EEF2FF",
+    borderWidth: 1.5, borderColor: "#C7D2FE",
     alignItems: "center", justifyContent: "center",
   },
 });

@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   sideBtn: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 40,
     backgroundColor: "#F9FAFB",
     justifyContent: "center",
     alignItems: "center",
@@ -153,7 +153,9 @@ const styles = StyleSheet.create({
   avatarRing: {
     width: 36,
     height: 36,
-    borderRadius: 12,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: "hidden",
     borderWidth: 2,
     borderColor: appColors.goldBorder,

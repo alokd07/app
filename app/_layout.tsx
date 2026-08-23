@@ -44,12 +44,8 @@ export default function RootLayout() {
   }, [hydrateUser]);
 
   useEffect(() => {
-    const textAny = Text as unknown as {
-      defaultProps?: { style?: { fontFamily?: string } };
-    };
-    const inputAny = TextInput as unknown as {
-      defaultProps?: { style?: { fontFamily?: string } };
-    };
+    const textAny = Text as any;
+    const inputAny = TextInput as any;
 
     textAny.defaultProps = textAny.defaultProps || {};
     inputAny.defaultProps = inputAny.defaultProps || {};
@@ -126,7 +122,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="payment"
           options={{
-            title: "Payment",
+            title: "Checkout & Payment",
           }}
         />
         <Stack.Screen
@@ -171,6 +167,36 @@ export default function RootLayout() {
           name="profile"
           options={{
             headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="demo/request"
+          options={{
+            title: "Book Free Demo",
+          }}
+        />
+        <Stack.Screen
+          name="demo/[id]"
+          options={{
+            title: "Demo Details",
+          }}
+        />
+        <Stack.Screen
+          name="demo/decision"
+          options={{
+            title: "Post-Demo Choice",
+          }}
+        />
+        <Stack.Screen
+          name="select-package"
+          options={{
+            title: "Select Package",
+          }}
+        />
+        <Stack.Screen
+          name="rate-session"
+          options={{
+            title: "Rate Your Session",
           }}
         />
       </Stack>

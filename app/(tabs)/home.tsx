@@ -91,7 +91,11 @@ function QuickAction({ icon, label, onPress, gradient }: any) {
 // ─── Promo Card ───────────────────────────────────────────────────────────────
 function PromoCard({ item }: any) {
   return (
-    <TouchableOpacity style={styles.promoCard} activeOpacity={0.9}>
+    <TouchableOpacity
+      style={styles.promoCard}
+      activeOpacity={0.9}
+      onPress={() => router.push("/ai-results")}
+    >
       <Image source={{ uri: item.image }} style={styles.promoImage} />
       <View style={styles.promoOverlay}>
         <Text style={styles.promoTitle} numberOfLines={1}>
@@ -319,7 +323,15 @@ function TeacherCard({ item, index }: { item: any; index: number }) {
             <Text style={styles.priceLabel}>per month</Text>
           </View>
 
-          <TouchableOpacity style={styles.demoBtn}>
+          <TouchableOpacity
+            style={styles.demoBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/book-session",
+                params: { teacherId: item._id },
+              })
+            }
+          >
             <Text style={styles.demoBtnText}>Book Free Demo</Text>
           </TouchableOpacity>
         </View>
@@ -586,7 +598,10 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.row}>
-            <TouchableOpacity style={styles.iconBtn}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => handleSearch("")}
+            >
               <Ionicons name="search-outline" size={18} color={appColors.ink} />
             </TouchableOpacity>
             <TouchableOpacity
@@ -619,7 +634,10 @@ export default function HomeScreen() {
               courses done
             </Text>
           </View>
-          <TouchableOpacity style={styles.continueBtn}>
+          <TouchableOpacity
+            style={styles.continueBtn}
+            onPress={() => router.push("/learning-progress")}
+          >
             <Text style={styles.continueBtnText}>Continue</Text>
             <Ionicons name="arrow-forward" size={14} color={appColors.navy} />
           </TouchableOpacity>
@@ -638,10 +656,23 @@ export default function HomeScreen() {
           icon="book-outline"
           label="Courses"
           gradient={[appColors.goldPale, appColors.goldPale]}
+          onPress={() => router.push("/learning-progress")}
         />
-        <QuickAction icon="trophy-outline" label="Achievements" />
-        <QuickAction icon="calendar-outline" label="Schedule" />
-        <QuickAction icon="chatbubble-outline" label="Messages" />
+        <QuickAction
+          icon="trophy-outline"
+          label="Achievements"
+          onPress={() => router.push("/learning-progress")}
+        />
+        <QuickAction
+          icon="calendar-outline"
+          label="Schedule"
+          onPress={() => router.push("/(tabs)/bookings")}
+        />
+        <QuickAction
+          icon="chatbubble-outline"
+          label="Messages"
+          onPress={() => router.push("/notifications")}
+        />
       </ScrollView>
 
       {/* ── Progress ── */}
@@ -721,7 +752,7 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Offers & Promotions</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/ai-results")}>
             <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
         </View>
@@ -756,7 +787,7 @@ export default function HomeScreen() {
               <Ionicons name="close-circle" size={18} color={appColors.muted} />
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/ai-results")}>
               <Ionicons
                 name="options-outline"
                 size={20}
@@ -771,7 +802,12 @@ export default function HomeScreen() {
       <View style={styles.teachersHeaderWrap}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recommended Teachers</Text>
-          <TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              setActiveFilter("All");
+              handleSearch("");
+            }}
+          >
             <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
         </View>
@@ -784,7 +820,10 @@ export default function HomeScreen() {
             <TouchableOpacity
               key={f}
               style={[styles.chip, activeFilter === f && styles.chipActive]}
-              onPress={() => setActiveFilter(f)}
+              onPress={() => {
+                setActiveFilter(f);
+                handleSearch(f === "All" ? "" : f);
+              }}
             >
               <Text
                 style={[
@@ -1366,7 +1405,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
-  expText: {
+  expTextOld: {
     fontSize: 12,
     color: "#6B7280",
     marginTop: 4,

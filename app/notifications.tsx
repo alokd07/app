@@ -33,89 +33,7 @@ interface Notification {
   actionRoute?: string;
 }
 
-// ─── Sample Data ───────────────────────────────────────────────────────────────
-const RAW_NOTIFS: Notification[] = [
-  {
-    id: "n1",
-    type: "booking",
-    read: false,
-    title: "Session Confirmed",
-    body: "Your session with Ananya Sharma is confirmed for Apr 5 at 2:00 PM.",
-    time: "2 min ago",
-    actionLabel: "View Booking",
-    actionRoute: "/(tabs)/bookings",
-  },
-  {
-    id: "n2",
-    type: "reminder",
-    read: false,
-    title: "Session in 1 Hour",
-    body: "Your Physics session with Rahul Verma starts at 4:00 PM today. Get ready!",
-    time: "45 min ago",
-    actionLabel: "View Details",
-    actionRoute: "/(tabs)/bookings",
-  },
-  {
-    id: "n3",
-    type: "payment",
-    read: false,
-    title: "Payment Received",
-    body: "₹500 advance payment for your Mathematics session has been processed.",
-    time: "2 hr ago",
-  },
-  {
-    id: "n4",
-    type: "booking",
-    read: true,
-    title: "Session Cancelled",
-    body: "Your session with Arjun Mehta on Mar 22 has been cancelled. Refund initiated.",
-    time: "Yesterday",
-  },
-  {
-    id: "n5",
-    type: "promo",
-    read: true,
-    title: "🎉 New Teachers Available",
-    body: "5 new teachers in Mathematics and Science just joined. Book a free trial session!",
-    time: "Yesterday",
-    actionLabel: "Explore",
-    actionRoute: "/(tabs)/home",
-  },
-  {
-    id: "n6",
-    type: "payment",
-    read: true,
-    title: "Refund Processed",
-    body: "₹500 refund for the cancelled session has been credited to your account.",
-    time: "2 days ago",
-  },
-  {
-    id: "n7",
-    type: "system",
-    read: true,
-    title: "Profile Updated",
-    body: "Your profile information has been updated successfully.",
-    time: "3 days ago",
-  },
-  {
-    id: "n8",
-    type: "reminder",
-    read: true,
-    title: "Complete Your Profile",
-    body: "Add your subjects and budget to get better teacher matches.",
-    time: "4 days ago",
-    actionLabel: "Update Profile",
-    actionRoute: "/(tabs)/profile",
-  },
-  {
-    id: "n9",
-    type: "promo",
-    read: true,
-    title: "Weekend Special",
-    body: "Book 3 sessions this weekend and get ₹100 off. Offer valid till Sunday.",
-    time: "5 days ago",
-  },
-];
+// ─── No hardcoded sample data — all data comes from the API ──────────────────
 
 // Group into Today / Yesterday / Earlier
 function groupNotifications(notifs: Notification[]) {
@@ -302,9 +220,43 @@ function EmptyState({ filter }: { filter: string }) {
 }
 
 // ─── Main Screen ───────────────────────────────────────────────────────────────
+import apiClient from "../src/services/api";
+import { API_CONFIG } from "../src/config/api";
+
 export default function NotificationsScreen() {
-  const [notifs, setNotifs] = useState<Notification[]>(RAW_NOTIFS);
+  const [notifs, setNotifs] = useState<Notification[]>([]);
   const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get(API_CONFIG.ENDPOINTS.NOTIFICATIONS);
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        const fetchedNotifs = response.data.data.map((n: any) => ({
+          id: n._id || n.id,
+          type: n.type || "system",
+          title: n.title,
+          body: n.body,
+          time: n.createdAt
+            ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : "Just now",
+          read: !!n.read,
+          actionLabel: n.actionLabel,
+          actionRoute: n.actionRoute,
+        }));
+        setNotifs(fetchedNotifs);
+      }
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
   const summaryOpacity = useRef(new Animated.Value(0)).current;
   const summaryTranslateY = useRef(new Animated.Value(16)).current;
@@ -317,14 +269,24 @@ export default function NotificationsScreen() {
     (n) => n.type === "payment" && !n.read,
   ).length;
 
-  const markRead = (id: string) => {
+  const markRead = async (id: string) => {
     setNotifs((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
     );
+    try {
+      await apiClient.patch(API_CONFIG.ENDPOINTS.NOTIFICATIONS_MARK_READ(id));
+    } catch (e) {
+      // ignore
+    }
   };
 
-  const markAllRead = () => {
+  const markAllRead = async () => {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await apiClient.patch(API_CONFIG.ENDPOINTS.NOTIFICATIONS_READ_ALL);
+    } catch (e) {
+      // ignore
+    }
   };
 
   const filtered =

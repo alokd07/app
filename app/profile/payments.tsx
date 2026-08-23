@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Platform,
   ScrollView,
@@ -6,44 +6,27 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { fonts } from "@/src/theme/colors";
+import apiClient from "@/src/services/api";
+import { API_CONFIG } from "@/src/config/api";
 
-const TRANSACTIONS = [
-  {
-    id: "1",
-    title: "Physics – Session Booking",
-    date: "28 May 2026",
-    amount: "₹599",
-    status: "Success",
-    icon: "flask-outline",
-    color: "#6366F1",
-  },
-  {
-    id: "2",
-    title: "Math – Session Booking",
-    date: "21 May 2026",
-    amount: "₹499",
-    status: "Success",
-    icon: "calculator-outline",
-    color: "#10B981",
-  },
-  {
-    id: "3",
-    title: "Chemistry – Session Booking",
-    date: "15 May 2026",
-    amount: "₹649",
-    status: "Refunded",
-    icon: "beaker-outline",
-    color: "#F59E0B",
-  },
-];
+type Transaction = {
+  id: string;
+  title: string;
+  date: string;
+  amount: string;
+  status: string;
+  icon: string;
+  color: string;
+};
 
-function TransactionCard({ item }: { item: (typeof TRANSACTIONS)[0] }) {
+function TransactionCard({ item }: { item: Transaction }) {
   const isRefunded = item.status === "Refunded";
   return (
     <View style={styles.txCard}>
@@ -68,7 +51,42 @@ function TransactionCard({ item }: { item: (typeof TRANSACTIONS)[0] }) {
   );
 }
 
+
 export default function PaymentsScreen() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.get(API_CONFIG.ENDPOINTS.PAYMENT_HISTORY);
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          setTransactions(res.data.data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch payment history:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, []);
+
+  const totalSpent = transactions
+    .filter((t) => t.status !== "Refunded")
+    .reduce((sum, t) => {
+      const num = parseInt(String(t.amount).replace(/[^0-9]/g, ""), 10);
+      return sum + (isNaN(num) ? 0 : num);
+    }, 0);
+
+  const totalRefunds = transactions
+    .filter((t) => t.status === "Refunded")
+    .reduce((sum, t) => {
+      const num = parseInt(String(t.amount).replace(/[^0-9]/g, ""), 10);
+      return sum + (isNaN(num) ? 0 : num);
+    }, 0);
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       {/* Header */}
@@ -84,10 +102,7 @@ export default function PaymentsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* Balance Card */}
         <View style={styles.balanceCardWrap}>
           <LinearGradient
@@ -99,8 +114,8 @@ export default function PaymentsScreen() {
             <View style={styles.balanceRow}>
               <View>
                 <Text style={styles.balanceLabel}>Total Spent</Text>
-                <Text style={styles.balanceAmount}>₹1,747</Text>
-                <Text style={styles.balanceSub}>Across 3 sessions</Text>
+                <Text style={styles.balanceAmount}>₹{totalSpent.toLocaleString()}</Text>
+                <Text style={styles.balanceSub}>Across {transactions.filter((t) => t.status !== "Refunded").length} sessions</Text>
               </View>
               <View style={styles.walletIcon}>
                 <Ionicons name="wallet" size={28} color="#E8A838" />
@@ -110,7 +125,7 @@ export default function PaymentsScreen() {
             <View style={styles.balanceStats}>
               <View>
                 <Text style={styles.balStatLab}>Sessions</Text>
-                <Text style={styles.balStatVal}>12</Text>
+                <Text style={styles.balStatVal}>{transactions.length}</Text>
               </View>
               <View style={styles.balStatDivider} />
               <View>
@@ -120,7 +135,7 @@ export default function PaymentsScreen() {
               <View style={styles.balStatDivider} />
               <View>
                 <Text style={styles.balStatLab}>Refunds</Text>
-                <Text style={styles.balStatVal}>₹649</Text>
+                <Text style={styles.balStatVal}>₹{totalRefunds.toLocaleString()}</Text>
               </View>
             </View>
           </LinearGradient>
@@ -129,16 +144,27 @@ export default function PaymentsScreen() {
         {/* Transactions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Transactions</Text>
-          <View style={styles.txList}>
-            {TRANSACTIONS.map((item, index) => (
-              <View key={item.id}>
-                <TransactionCard item={item} />
-                {index < TRANSACTIONS.length - 1 && (
-                  <View style={styles.txDivider} />
-                )}
-              </View>
-            ))}
-          </View>
+          {loading ? (
+            <ActivityIndicator style={{ marginVertical: 24 }} color="#6366F1" />
+          ) : transactions.length === 0 ? (
+            <View style={{ alignItems: "center", paddingVertical: 32 }}>
+              <Ionicons name="receipt-outline" size={40} color="#D1D5DB" />
+              <Text style={{ color: "#9CA3AF", marginTop: 12, fontFamily: fonts.medium }}>
+                No transactions yet
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.txList}>
+              {transactions.map((item, index) => (
+                <View key={item.id}>
+                  <TransactionCard item={item} />
+                  {index < transactions.length - 1 && (
+                    <View style={styles.txDivider} />
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Saved Cards */}

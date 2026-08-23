@@ -5,41 +5,19 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  ScrollView,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCurrency } from "../src/utils/helpers";
-import { appColors } from "../src/theme/colors";
+import { appColors, fonts } from "../src/theme/colors";
 
 const P = appColors;
 
-// ─── Detail Row ────────────────────────────────────────────────────────────────
-function DetailRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: any;
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.detailRow}>
-      <View style={styles.detailIcon}>
-        <Ionicons name={icon} size={14} color={P.gold} />
-      </View>
-      <View style={styles.detailTexts}>
-        <Text style={styles.detailLabel}>{label}</Text>
-        <Text style={styles.detailValue}>{value}</Text>
-      </View>
-    </View>
-  );
-}
-
-// ─── Screen ────────────────────────────────────────────────────────────────────
 export default function BookingConfirmationScreen() {
+  const insets = useSafeAreaInsets();
   const { bookingId, teacherName, date, time, amount } = useLocalSearchParams<{
     bookingId: string;
     teacherName: string;
@@ -48,472 +26,230 @@ export default function BookingConfirmationScreen() {
     amount: string;
   }>();
 
-  // Entrance animations
   const checkScale = useRef(new Animated.Value(0)).current;
-  const checkOpacity = useRef(new Animated.Value(0)).current;
-  const cardTransY = useRef(new Animated.Value(30)).current;
-  const cardOpacity = useRef(new Animated.Value(0)).current;
-  const btnOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.sequence([
-      // 1. Pop in the check circle
-      Animated.parallel([
-        Animated.spring(checkScale, {
-          toValue: 1,
-          tension: 60,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-        Animated.timing(checkOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]),
-      // 2. Slide up the detail card
-      Animated.delay(100),
-      Animated.parallel([
-        Animated.spring(cardTransY, {
-          toValue: 0,
-          tension: 60,
-          friction: 10,
-          useNativeDriver: true,
-        }),
-        Animated.timing(cardOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]),
-      // 3. Fade in buttons
-      Animated.timing(btnOpacity, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    Animated.spring(checkScale, {
+      toValue: 1,
+      tension: 60,
+      friction: 6,
+      useNativeDriver: true,
+    }).start();
   }, []);
 
+  const amountNum = parseFloat(amount || "0");
+
   return (
-    <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
-      {/* ── Main scrollable area ── */}
-      <View style={styles.body}>
-        {/* ── Success icon ── */}
-        <Animated.View
-          style={[
-            styles.successWrap,
-            { opacity: checkOpacity, transform: [{ scale: checkScale }] },
-          ]}
-        >
-          {/* Outer ring */}
-          <View style={styles.successOuterRing}>
-            <View style={styles.successInnerRing}>
-              <View style={styles.successCircle}>
-                <Ionicons name="checkmark" size={38} color={P.white} />
-              </View>
-            </View>
-          </View>
-          {/* Gold glow dots */}
-          <View style={[styles.glowDot, { top: 4, right: 12 }]} />
-          <View
-            style={[
-              styles.glowDot,
-              { bottom: 8, left: 8, width: 6, height: 6 },
-            ]}
-          />
-          <View
-            style={[
-              styles.glowDot,
-              { top: 16, left: 0, width: 4, height: 4, opacity: 0.5 },
-            ]}
-          />
+    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 20) }]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Animated Check Icon */}
+        <Animated.View style={[styles.checkCircle, { transform: [{ scale: checkScale }] }]}>
+          <Ionicons name="checkmark-sharp" size={48} color="#fff" />
         </Animated.View>
 
-        <Text style={styles.headline}>Booking Confirmed!</Text>
-        <Text style={styles.subline}>
-          Your session has been booked successfully
+        <Text style={styles.title}>Booking Confirmed!</Text>
+        <Text style={styles.subtitle}>
+          Your session with {teacherName || "your teacher"} has been booked successfully.
         </Text>
 
-        {/* ── Booking ID pill ── */}
+        {/* Booking ID */}
         {bookingId && (
           <View style={styles.idPill}>
-            <Text style={styles.idPillLabel}>Booking ID</Text>
-            <Text style={styles.idPillValue}>
-              #{bookingId.slice(-8).toUpperCase()}
-            </Text>
+            <Text style={styles.idPillLabel}>Booking ID:</Text>
+            <Text style={styles.idPillVal}>#{bookingId.slice(-8).toUpperCase()}</Text>
           </View>
         )}
 
-        {/* ── Detail card ── */}
-        <Animated.View
-          style={[
-            styles.detailCard,
-            { opacity: cardOpacity, transform: [{ translateY: cardTransY }] },
-          ]}
-        >
-          {/* Gold accent line */}
-          <LinearGradient
-            colors={[P.gold, "transparent"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.cardAccent}
-          />
+        {/* Session Details Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Session Summary</Text>
 
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.cardIconBox}>
-              <Ionicons name="receipt-outline" size={13} color={P.gold} />
+          <View style={styles.infoRow}>
+            <View style={styles.iconBox}>
+              <Ionicons name="person-outline" size={16} color="#6366F1" />
             </View>
-            <Text style={styles.cardTitle}>Session Details</Text>
-          </View>
-
-          <View style={styles.detailsWrap}>
-            <DetailRow
-              icon="person-outline"
-              label="Teacher"
-              value={teacherName || "—"}
-            />
-            <DetailRow
-              icon="calendar-outline"
-              label="Date"
-              value={date || "—"}
-            />
-            <DetailRow icon="time-outline" label="Time" value={time || "—"} />
-          </View>
-
-          <View style={styles.amountRow}>
-            <View style={styles.amountLeft}>
-              <Ionicons name="card-outline" size={14} color={P.gold} />
-              <Text style={styles.amountLabel}>Advance Paid</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.infoLabel}>Teacher</Text>
+              <Text style={styles.infoVal}>{teacherName || "Teacher"}</Text>
             </View>
-            <Text style={styles.amountValue}>
-              {formatCurrency(parseFloat(amount || "0"))}
-            </Text>
           </View>
-        </Animated.View>
 
-        {/* ── Info note ── */}
-        <Animated.View style={[styles.infoNote, { opacity: cardOpacity }]}>
-          <View style={styles.infoIconBox}>
-            <Ionicons
-              name="notifications-outline"
-              size={13}
-              color={P.success}
-            />
-          </View>
-          <Text style={styles.infoText}>
-            You&apos;ll receive confirmation details on your registered number
-            shortly.
+          {date && (
+            <View style={styles.infoRow}>
+              <View style={styles.iconBox}>
+                <Ionicons name="calendar-outline" size={16} color="#6366F1" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoLabel}>Date</Text>
+                <Text style={styles.infoVal}>{date}</Text>
+              </View>
+            </View>
+          )}
+
+          {time && (
+            <View style={styles.infoRow}>
+              <View style={styles.iconBox}>
+                <Ionicons name="time-outline" size={16} color="#6366F1" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoLabel}>Time</Text>
+                <Text style={styles.infoVal}>{time}</Text>
+              </View>
+            </View>
+          )}
+
+          {amountNum > 0 && (
+            <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+              <View style={styles.iconBox}>
+                <Ionicons name="cash-outline" size={16} color="#10B981" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoLabel}>Amount Paid</Text>
+                <Text style={[styles.infoVal, { color: "#10B981", fontFamily: fonts.bold }]}>
+                  {formatCurrency(amountNum)}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Confirmation note */}
+        <View style={styles.noteBox}>
+          <Ionicons name="mail-unread-outline" size={18} color="#6366F1" />
+          <Text style={styles.noteText}>
+            Session details and calendar invite have been sent to your registered account.
           </Text>
-        </Animated.View>
-      </View>
+        </View>
+      </ScrollView>
 
-      {/* ── Footer actions ── */}
-      <Animated.View style={[styles.footer, { opacity: btnOpacity }]}>
-        {/* Primary: View Bookings */}
+      {/* Bottom Actions */}
+      <View style={styles.actions}>
         <TouchableOpacity
-          onPress={() => router.replace("/(tabs)/bookings")}
-          activeOpacity={0.88}
           style={styles.primaryBtn}
+          onPress={() => router.replace("/(tabs)/bookings")}
+          activeOpacity={0.85}
         >
           <LinearGradient
-            colors={[P.gold, P.goldLight]}
+            colors={["#E8A838", "#C47F0A"]}
+            style={styles.btnGrad}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.primaryBtnInner}
           >
             <Text style={styles.primaryBtnText}>View My Bookings</Text>
-            <View style={styles.primaryBtnArrow}>
-              <Ionicons name="arrow-forward" size={14} color={P.gold} />
-            </View>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Secondary: Home */}
         <TouchableOpacity
-          onPress={() => router.replace("/(tabs)/home")}
-          activeOpacity={0.8}
           style={styles.secondaryBtn}
+          onPress={() => router.replace("/(tabs)/home")}
+          activeOpacity={0.7}
         >
-          <Ionicons
-            name="home-outline"
-            size={16}
-            color={P.mutedDark}
-            style={{ marginRight: 6 }}
-          />
           <Text style={styles.secondaryBtnText}>Back to Home</Text>
         </TouchableOpacity>
-      </Animated.View>
-    </SafeAreaView>
+      </View>
+    </View>
   );
 }
 
-// ─── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: P.cream },
-
-  body: {
-    flex: 1,
+  root: { flex: 1, backgroundColor: "#F5F6FA" },
+  scrollContent: { alignItems: "center", padding: 20, paddingTop: 40 },
+  checkCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#10B981",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingTop: 12,
+    marginBottom: 20,
+    shadowColor: "#10B981",
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
-
-  // Success icon
-  successWrap: {
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
-  successOuterRing: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: P.successPale,
-    borderWidth: 1.5,
-    borderColor: P.successBorder,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  successInnerRing: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: "rgba(39,174,96,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  successCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: P.success,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  glowDot: {
-    position: "absolute",
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: P.gold,
-    opacity: 0.7,
-  },
-
-  headline: {
-    fontSize: 26,
-    fontFamily: "Manrope_700Bold",
-    color: P.ink,
-    letterSpacing: -0.5,
-    marginBottom: 6,
-    textAlign: "center",
-  },
-  subline: {
+  title: { fontSize: 24, fontFamily: fonts.bold, color: "#111827", textAlign: "center" },
+  subtitle: {
     fontSize: 14,
-    fontFamily: "Manrope_400Regular",
-    color: P.muted,
+    fontFamily: fonts.regular,
+    color: "#6B7280",
     textAlign: "center",
-    lineHeight: 21,
+    marginTop: 6,
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
-
-  // Booking ID pill
   idPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    backgroundColor: P.goldDim,
-    borderWidth: 1,
-    borderColor: P.goldBorder,
-    borderRadius: 20,
-    paddingHorizontal: 14,
+    gap: 6,
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    marginBottom: 24,
-  },
-  idPillLabel: {
-    fontSize: 11,
-    fontFamily: "Manrope_500Medium",
-    color: P.mutedDark,
-  },
-  idPillValue: {
-    fontSize: 12,
-    fontFamily: "Manrope_700Bold",
-    color: P.gold,
-    letterSpacing: 0.5,
-  },
-
-  // Detail card
-  detailCard: {
-    width: "100%",
-    backgroundColor: P.white,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: P.border,
-    overflow: "hidden",
-    marginBottom: 14,
-    shadowColor: P.navy,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-    elevation: 3,
+    marginBottom: 20,
   },
-  cardAccent: { height: 2 },
-  cardHeaderRow: {
+  idPillLabel: { fontSize: 12, fontFamily: fonts.medium, color: "#6366F1" },
+  idPillVal: { fontSize: 12, fontFamily: fonts.bold, color: "#4F46E5" },
+  card: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardTitle: { fontSize: 15, fontFamily: fonts.bold, color: "#111827", marginBottom: 12 },
+  infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 14,
+    gap: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: P.border,
+    borderBottomColor: "#F3F4F6",
   },
-  cardIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: P.goldDim,
-    borderWidth: 1,
-    borderColor: P.goldBorder,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardTitle: { fontSize: 13, fontFamily: "Manrope_700Bold", color: P.ink },
-  detailsWrap: {
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 6,
-    gap: 14,
-  },
-
-  detailRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  detailIcon: {
+  iconBox: {
     width: 32,
     height: 32,
-    borderRadius: 9,
-    backgroundColor: P.goldDim,
-    borderWidth: 1,
-    borderColor: P.goldBorder,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
     alignItems: "center",
     justifyContent: "center",
-    flexShrink: 0,
   },
-  detailTexts: { flex: 1 },
-  detailLabel: {
-    fontSize: 10,
-    fontFamily: "Manrope_500Medium",
-    color: P.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 1,
-  },
-  detailValue: {
-    fontSize: 13,
-    fontFamily: "Manrope_600SemiBold",
-    color: P.ink,
-  },
-
-  // Amount row
-  amountRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    margin: 14,
-    marginTop: 10,
-    backgroundColor: P.navy,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  amountLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  amountLabel: {
-    fontSize: 13,
-    fontFamily: "Manrope_600SemiBold",
-    color: P.muted,
-  },
-  amountValue: {
-    fontSize: 18,
-    fontFamily: "Manrope_700Bold",
-    color: P.gold,
-    letterSpacing: -0.5,
-  },
-
-  // Info note
-  infoNote: {
+  infoLabel: { fontSize: 11, fontFamily: fonts.medium, color: "#6B7280" },
+  infoVal: { fontSize: 13, fontFamily: fonts.semiBold, color: "#111827", marginTop: 1 },
+  noteBox: {
     width: "100%",
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 10,
-    backgroundColor: P.successPale,
-    borderWidth: 1,
-    borderColor: P.successBorder,
-    borderRadius: 14,
+    backgroundColor: "#EEF2FF",
     padding: 14,
+    borderRadius: 12,
   },
-  infoIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: "rgba(39,174,96,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 12,
-    fontFamily: "Manrope_400Regular",
-    color: P.success,
-    lineHeight: 18,
-  },
-
-  // Footer
-  footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 20,
-    paddingTop: 12,
-    gap: 10,
-    borderTopWidth: 1,
-    borderTopColor: P.border,
-    backgroundColor: P.cream,
-  },
-  primaryBtn: { borderRadius: 16, overflow: "hidden" },
-  primaryBtnInner: {
+  noteText: { flex: 1, fontSize: 12, fontFamily: fonts.medium, color: "#4F46E5", lineHeight: 18 },
+  actions: { paddingHorizontal: 20, gap: 12 },
+  primaryBtn: { borderRadius: 14, overflow: "hidden" },
+  btnGrad: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 15,
-    gap: 12,
+    gap: 8,
+    paddingVertical: 16,
   },
-  primaryBtnText: {
-    fontSize: 15,
-    fontFamily: "Manrope_700Bold",
-    color: P.navy,
-    letterSpacing: 0.2,
-  },
-  primaryBtnArrow: {
-    width: 26,
-    height: 26,
-    borderRadius: 9,
-    backgroundColor: P.navy,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  primaryBtnText: { color: "#fff", fontFamily: fonts.bold, fontSize: 15 },
   secondaryBtn: {
-    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 13,
+    paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: P.white,
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: "#E5E7EB",
   },
-  secondaryBtnText: {
-    fontSize: 14,
-    fontFamily: "Manrope_600SemiBold",
-    color: P.mutedDark,
-  },
+  secondaryBtnText: { fontSize: 14, fontFamily: fonts.semiBold, color: "#374151" },
 });

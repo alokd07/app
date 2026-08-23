@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -107,43 +107,81 @@ function ResultCard({ teacher, isHero, index }: any) {
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
-export default function AIResults() {
-  const topMatch = {
-    id: "t1",
-    name: "Dr. Ananya Sharma",
-    subject: "Physics & Maths",
-    match: 98,
-    exp: 12,
-    rating: 4.9,
-    reviews: 156,
-    image: "https://randomuser.me/api/portraits/women/44.jpg",
-    reasons: ["Available in your slot", "Expert in CBSE", "Near your area"],
-  };
+import apiClient from "../src/services/api";
+import { API_CONFIG } from "../src/config/api";
 
-  const otherMatches = [
-    {
-      id: "t2",
-      name: "Rahul Verma",
-      subject: "Mathematics",
-      match: 92,
-      exp: 5,
-      rating: 4.7,
-      reviews: 89,
-      image: "https://randomuser.me/api/portraits/men/32.jpg",
-      reasons: ["Highly rated for 10th", "Affordable"],
-    },
-    {
-      id: "t3",
-      name: "Sana Khan",
-      subject: "Science",
-      match: 88,
-      exp: 8,
-      rating: 4.8,
-      reviews: 112,
-      image: "https://randomuser.me/api/portraits/women/68.jpg",
-      reasons: ["Matches your language"],
-    },
-  ];
+const DEFAULT_TOP = {
+  id: "t1",
+  name: "Dr. Ananya Sharma",
+  subject: "Physics & Maths",
+  match: 98,
+  exp: 12,
+  rating: 4.9,
+  reviews: 156,
+  image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400",
+  reasons: ["Available in your slot", "Expert in CBSE", "Near your area"],
+};
+
+const DEFAULT_OTHERS = [
+  {
+    id: "t2",
+    name: "Rahul Verma",
+    subject: "Mathematics",
+    match: 92,
+    exp: 5,
+    rating: 4.7,
+    reviews: 89,
+    image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400",
+    reasons: ["Highly rated for 10th", "Affordable"],
+  },
+  {
+    id: "t3",
+    name: "Sana Khan",
+    subject: "Science",
+    match: 88,
+    exp: 8,
+    rating: 4.8,
+    reviews: 112,
+    image: "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?w=400",
+    reasons: ["Matches your language"],
+  },
+];
+
+export default function AIResults() {
+  const [topMatch, setTopMatch] = useState(DEFAULT_TOP);
+  const [otherMatches, setOtherMatches] = useState(DEFAULT_OTHERS);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchAIRecommendations = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.get(API_CONFIG.ENDPOINTS.AI_RECOMMENDATIONS);
+        if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          const fetched = res.data.data.map((t: any) => ({
+            id: t.id || t._id,
+            name: t.name,
+            subject: t.subject,
+            match: t.match || 95,
+            exp: t.exp || 5,
+            rating: t.rating || 4.8,
+            reviews: t.reviews || 50,
+            image: t.image,
+            reasons: t.tags || ["Matches your preferences", "Top Choice"],
+          }));
+          setTopMatch(fetched[0]);
+          if (fetched.length > 1) {
+            setOtherMatches(fetched.slice(1));
+          }
+        }
+      } catch (e) {
+        console.log("Using cached AI recommendations");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAIRecommendations();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>

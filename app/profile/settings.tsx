@@ -121,14 +121,26 @@ const SETTINGS_GROUPS: { title: string; items: SettingRow[] }[] = [
   },
 ];
 
+import apiClient from "@/src/services/api";
+import { API_CONFIG } from "@/src/config/api";
+
 function SettingItem({ item }: { item: SettingRow }) {
   const [enabled, setEnabled] = useState(item.defaultOn ?? false);
+
+  const toggleSetting = async (val: boolean) => {
+    setEnabled(val);
+    try {
+      await apiClient.put(API_CONFIG.ENDPOINTS.STUDENT_SETTINGS, { [item.id]: val });
+    } catch (e) {
+      // ignore
+    }
+  };
 
   return (
     <TouchableOpacity
       style={styles.settingRow}
       onPress={() => {
-        if (item.type === "toggle") setEnabled(!enabled);
+        if (item.type === "toggle") toggleSetting(!enabled);
         else item.onAction?.();
       }}
       activeOpacity={item.type === "action" ? 0.7 : 1}
@@ -143,7 +155,7 @@ function SettingItem({ item }: { item: SettingRow }) {
       {item.type === "toggle" ? (
         <Switch
           value={enabled}
-          onValueChange={setEnabled}
+          onValueChange={toggleSetting}
           trackColor={{ false: "#E5E7EB", true: `${P.gold}60` }}
           thumbColor={enabled ? P.gold : "#D1D5DB"}
           ios_backgroundColor="#E5E7EB"
