@@ -1,702 +1,938 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React from "react";
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
   Platform,
+  Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { getUserData, removeToken } from "@/src/services/auth";
-import Avatar from "@/components/Avatar";
-import * as WebBrowser from "expo-web-browser";
-import { appColors, fonts } from "../../src/theme/colors";
-import { useAuthStore } from "@/src/store/authStore";
-import Loader from "@/components/Loader";
+import { Feather } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { fonts } from "../../src/theme/colors";
+import { useUserStore } from "../../src/store/userStore";
+import { useAuthStore } from "../../src/store/authStore";
+import { useTuitionStore } from "../../src/store/tuitionStore";
 
-const P = {
-  ...appColors,
-  navy: appColors.midnight,
-  navyMid: appColors.midnightMid,
-  muted: appColors.mutedSlate,
-  success: appColors.successAlt,
-  border: appColors.goldBorder,
-  goldSoft: appColors.goldSoft,
-  glass: appColors.glassStrong,
+/* ── Design tokens matching progress.tsx & tuition.tsx ── */
+const C = {
+  ink: "#0D1B2A",
+  inkSoft: "#1E3A5F",
+  amber: "#E8A838",
+  amberDeep: "#B7791F",
+  amberTint: "#FFF7E6",
+  amberLine: "#F6E3B4",
+  bg: "#F5F6F8",
+  surface: "#FFFFFF",
+  line: "#E8ECF1",
+  track: "#EEF1F5",
+  muted: "#64748B",
+  faint: "#94A3B8",
+  green: "#10B981",
+  greenTint: "#ECFDF5",
+  red: "#EF4444",
+  redTint: "#FEF2F2",
+  orange: "#F59E0B",
+  orangeTint: "#FEF3C7",
+  indigo: "#4F46E5",
+  indigoTint: "#EEF2FF",
+  cyan: "#0D9488",
+  cyanTint: "#F0FDFA",
+  purple: "#9333EA",
+  purpleTint: "#F3E8FF",
+  blue: "#2563EB",
+  blueTint: "#DBEAFE",
 };
-
-type ProfileData = {
-  imageUrl?: string;
-  firstName: string;
-  lastName: string;
-  DOB: string;
-  gender: string;
-  phoneNumber: string;
-  houseNumber: string;
-  area: string;
-  landmark: string;
-  pincode: string;
-  city: string;
-  state: string;
-  country: string;
-  schoolName: string;
-  schoolAddress: string;
-};
-
-const EMPTY_PROFILE: ProfileData = {
-  imageUrl: "",
-  firstName: "",
-  lastName: "",
-  DOB: "",
-  gender: "",
-  phoneNumber: "",
-  houseNumber: "",
-  area: "",
-  landmark: "",
-  pincode: "",
-  city: "",
-  state: "",
-  country: "India",
-  schoolName: "",
-  schoolAddress: "",
-};
-
-type MenuGroup = {
-  title: string;
-  items: MenuItem[];
-};
-
-type MenuItem = {
-  id: string;
-  icon: string;
-  label: string;
-  sublabel: string;
-  color: string;
-  bgColor: string;
-  badge?: string;
-  onPress: () => void;
-};
-
-function StatPill({
-  value,
-  label,
-}: {
-  value: string;
-  label: string;
-}) {
-  return (
-    <View style={styles.statItem}>
-      <Text style={styles.statVal}>{value}</Text>
-      <Text style={styles.statLab}>{label}</Text>
-    </View>
-  );
-}
-
-function MenuCard({ group }: { group: MenuGroup }) {
-  return (
-    <View style={styles.menuGroup}>
-      <Text style={styles.menuGroupTitle}>{group.title}</Text>
-      <View style={styles.menuCard}>
-        {group.items.map((item, index) => (
-          <View key={item.id}>
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={item.onPress}
-              activeOpacity={0.7}
-            >
-              <View
-                style={[styles.menuIconBox, { backgroundColor: item.bgColor }]}
-              >
-                <Ionicons name={item.icon as any} size={20} color={item.color} />
-              </View>
-              <View style={styles.menuRowContent}>
-                <Text style={styles.menuLabel}>{item.label}</Text>
-                <Text style={styles.menuSublabel}>{item.sublabel}</Text>
-              </View>
-              {item.badge ? (
-                <View style={styles.badgePill}>
-                  <Text style={styles.badgeText}>{item.badge}</Text>
-                </View>
-              ) : (
-                <View style={styles.chevronBox}>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={P.muted}
-                  />
-                </View>
-              )}
-            </TouchableOpacity>
-            {index < group.items.length - 1 && (
-              <View style={styles.menuDivider} />
-            )}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function ProfileCompletion({ percent }: { percent: number }) {
-  const segments = 12;
-  const filled = Math.round((percent / 100) * segments);
-  return (
-    <View style={styles.completionContainer}>
-      <View style={styles.completionHeader}>
-        <Text style={styles.completionLabel}>Profile Completion</Text>
-        <Text style={styles.completionPct}>{percent}%</Text>
-      </View>
-      <View style={styles.completionBar}>
-        <View style={[styles.completionFill, { width: `${percent}%` }]} />
-      </View>
-    </View>
-  );
-}
 
 export default function ProfileScreen() {
-  const [user, setUser] = useState<ProfileData>(EMPTY_PROFILE);
-  const [isSaving, setIsSaving] = useState(false);
-  const { setAuthenticated, setUser: setAuthUser } = useAuthStore();
+  const { user, children, addresses, paymentMethods, activeChildId, setActiveChildId } =
+    useUserStore();
+  const { activeTuitions, getLatestInvoiceForChild } = useTuitionStore();
+  const logout = useAuthStore((s) => s.logout);
 
-  const fullName = useMemo(() => {
-    const parts = [user.firstName, user.lastName]
-      .map((part) => part?.trim())
-      .filter(Boolean);
-    return parts.length > 0 ? parts.join(" ") : "Student";
-  }, [user.firstName, user.lastName]);
+  const hasDueInvoice = children.some((c) => {
+    const inv = getLatestInvoiceForChild(c.id);
+    return inv && inv.status === "DUE";
+  });
 
-  const formatPhoneNumber = (phone: string | undefined): string => {
-    if (!phone) return "—";
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length === 12 && digits.startsWith("91")) {
-      const first = digits.slice(2, 7);
-      const second = digits.slice(7, 12);
-      return `+91 ${first} ${second}`;
-    }
-    return phone;
-  };
+  const liveTuitionsCount = activeTuitions.filter(
+    (t) => t.status === "ACTIVE"
+  ).length;
 
-  const profileCompletion = useMemo(() => {
-    const fields: (keyof ProfileData)[] = [
-      "firstName", "lastName", "DOB", "gender", "phoneNumber",
-      "houseNumber", "area", "pincode", "city", "state",
-      "schoolName", "schoolAddress",
-    ];
-    const filled = fields.filter((f) => {
-      const v = user[f];
-      return v && typeof v === "string" && v.trim().length > 0;
-    }).length;
-    return Math.round((filled / fields.length) * 100);
-  }, [user]);
-
-  const loadUser = async () => {
-    const storedUser = await getUserData();
-    const normalizedUser =
-      storedUser?.student ??
-      storedUser?.data?.student ??
-      storedUser?.data ??
-      storedUser ??
-      {};
-    setUser({ ...EMPTY_PROFILE, ...normalizedUser });
-  };
-
-  useEffect(() => {
-    loadUser();
-  }, []);
-
-  async function handleSignOut() {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          await removeToken();
-          setAuthenticated(false);
-          router.replace("/auth/login");
-        },
-      },
-    ]);
-  }
-
-  const menuGroups: MenuGroup[] = [
-    {
-      title: "My Profile",
-      items: [
+  const handleLogout = () => {
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out of your BookMySession parent account?",
+      [
+        { text: "Cancel", style: "cancel" },
         {
-          id: "personal",
-          icon: "person-outline",
-          label: "Personal Details",
-          sublabel: "Name, DOB, gender",
-          color: "#6366F1",
-          bgColor: "rgba(99,102,241,0.12)",
-          onPress: () => router.push("/profile/personal-details"),
-        },
-        {
-          id: "contact",
-          icon: "call-outline",
-          label: "Contact & Address",
-          sublabel: "Phone, location details",
-          color: "#0EA5E9",
-          bgColor: "rgba(14,165,233,0.12)",
-          onPress: () => router.push("/profile/contact-details"),
-        },
-        {
-          id: "education",
-          icon: "school-outline",
-          label: "Education Details",
-          sublabel: "School name & address",
-          color: "#10B981",
-          bgColor: "rgba(16,185,129,0.12)",
-          onPress: () => router.push("/profile/education-details"),
-        },
-      ],
-    },
-    {
-      title: "Account",
-      items: [
-        {
-          id: "notifications",
-          icon: "notifications-outline",
-          label: "Notifications",
-          sublabel: "Alerts, sounds, reminders",
-          color: "#F59E0B",
-          bgColor: "rgba(245,158,11,0.12)",
-          badge: "3",
-          onPress: () => router.push("/notifications"),
-        },
-        {
-          id: "payments",
-          icon: "wallet-outline",
-          label: "Payments & Invoices",
-          sublabel: "Saved cards, billing history",
-          color: "#8B5CF6",
-          bgColor: "rgba(139,92,246,0.12)",
-          onPress: () => router.push("/profile/payments"),
-        },
-        {
-          id: "privacy",
-          icon: "shield-checkmark-outline",
-          label: "Privacy & Security",
-          sublabel: "Password, data controls",
-          color: "#E8A838",
-          bgColor: "rgba(232,168,56,0.12)",
+          text: "Log Out",
+          style: "destructive",
           onPress: () => {
-            WebBrowser.openBrowserAsync(
-              "https://www.bookmysession.in/privacy-policy"
-            );
+            logout();
+            router.replace("/auth/login");
           },
         },
-      ],
-    },
-    {
-      title: "Support",
-      items: [
-        {
-          id: "help",
-          icon: "help-circle-outline",
-          label: "Help & Support",
-          sublabel: "FAQs, contact us",
-          color: "#14B8A6",
-          bgColor: "rgba(20,184,166,0.12)",
-          onPress: () => router.push("/profile/help"),
-        },
-        {
-          id: "about",
-          icon: "information-circle-outline",
-          label: "About BookMySession",
-          sublabel: "Version, terms, privacy",
-          color: "#6B7280",
-          bgColor: "rgba(107,114,128,0.12)",
-          onPress: () => router.push("/profile/about"),
-        },
-      ],
-    },
-  ];
+      ]
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
-      <Loader visible={isSaving} />
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      {/* ── HEADER ── */}
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Parent Profile</Text>
+          <Text style={styles.subtitle}>
+            Account, family & session settings
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.headerActionBtn}
+          onPress={() => router.push("/profile/settings")}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="settings-outline" size={20} color={C.ink} />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 110 }}
+        contentContainerStyle={styles.scrollContent}
       >
-        {/* ── Hero Header ── */}
-        <View style={styles.hero}>
-          <LinearGradient
-            colors={[P.navy, P.navyMid]}
-            style={StyleSheet.absoluteFill}
-          />
-
-          {/* Settings shortcut */}
-          <TouchableOpacity
-            style={styles.settingsBtn}
-            onPress={() => router.push("/profile/settings")}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.7)" />
-          </TouchableOpacity>
-
-          {/* Avatar + name */}
-          <View style={styles.heroBody}>
-            <View style={styles.avatarWrapper}>
-              <View style={styles.avatarRing} />
-              <Avatar
-                uri={user.imageUrl}
-                name={user.firstName || "Student"}
-                size={86}
-              />
-              <TouchableOpacity
-                style={styles.cameraBtn}
-                activeOpacity={0.85}
-                onPress={() => router.push("/profile/personal-details")}
-              >
-                <Ionicons name="camera" size={14} color={P.navy} />
-              </TouchableOpacity>
+        {/* ── PROFILE SPOTLIGHT (MODERN & CARDLESS) ── */}
+        <View style={styles.profileSpotlight}>
+          <View style={styles.profileTopRow}>
+            <View style={styles.avatarWrap}>
+              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+              <View style={styles.verifiedIconWrap}>
+                <Ionicons name="shield-checkmark" size={14} color="#FFFFFF" />
+              </View>
             </View>
-            <Text style={styles.heroName}>{fullName}</Text>
-            <Text style={styles.heroPhone}>
-              {formatPhoneNumber(user.phoneNumber)}
-            </Text>
-            <View style={styles.rankPill}>
-              <Ionicons name="ribbon" size={12} color={P.gold} />
-              <Text style={styles.rankText}>GOLD STUDENT</Text>
+
+            <View style={styles.profileInfo}>
+              <View style={styles.statusBadgeRow}>
+                <View style={styles.verifiedBadge}>
+                  <View style={styles.verifiedDot} />
+                  <Text style={styles.verifiedBadgeText}>Verified Parent</Text>
+                </View>
+                <View style={styles.locationBadge}>
+                  <Ionicons name="location" size={12} color={C.muted} />
+                  <Text style={styles.locationText} numberOfLines={1}>
+                    {user.location || "Vasant Vihar, New Delhi"}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.userName}>{user.name}</Text>
+              <Text style={styles.userContact}>
+                {user.phone} · {user.email}
+              </Text>
             </View>
           </View>
 
-          {/* Stats bar */}
-          <View style={styles.statsBar}>
-            <StatPill value="12" label="SESSIONS" />
-            <View style={styles.statDivider} />
-            <StatPill value="4.9" label="RATING" />
-            <View style={styles.statDivider} />
-            <StatPill value="8" label="COURSES" />
+          {/* Quick Action Pill Row */}
+          <View style={styles.profileActionRow}>
+            <TouchableOpacity
+              style={styles.editProfileBtn}
+              onPress={() => router.push("/profile/personal-details")}
+              activeOpacity={0.85}
+            >
+              <MaterialCommunityIcons name="account-edit" size={18} color={C.ink} />
+              <Text style={styles.editProfileBtnText}>Edit Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.addressPillBtn}
+              onPress={() => router.push("/profile/addresses")}
+              activeOpacity={0.85}
+            >
+              <MaterialCommunityIcons name="home-edit" size={18} color={C.amberDeep} />
+              <Text style={styles.addressPillBtnText}>
+                {addresses.length} Saved Address
+                {addresses.length > 1 ? "es" : ""}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* ── Content ── */}
-        <View style={styles.content}>
-          {/* Completion Bar */}
-          <ProfileCompletion percent={profileCompletion} />
+        {/* ── FAMILY & ACCOUNT STATS BANNER ── */}
+        <View style={styles.card}>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{children.length}</Text>
+              <Text style={styles.statLabel}>Enrolled children</Text>
+            </View>
 
-          {/* Menu Groups */}
-          {menuGroups.map((group) => (
-            <MenuCard key={group.title} group={group} />
-          ))}
+            <View style={styles.statDivider} />
 
-          {/* Sign Out */}
+            <View style={styles.statItem}>
+              <Text style={[styles.statNumber, { color: C.green }]}>
+                {liveTuitionsCount}
+              </Text>
+              <Text style={styles.statLabel}>Active home tuitions</Text>
+            </View>
+
+            <View style={styles.statDivider} />
+
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{paymentMethods.length}</Text>
+              <Text style={styles.statLabel}>Payment methods</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ── CHILDREN SECTION ── */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>My Children</Text>
           <TouchableOpacity
-            onPress={handleSignOut}
-            style={styles.signOutBtn}
+            style={styles.addChildPill}
+            onPress={() => router.push("/parent/add-child")}
             activeOpacity={0.85}
           >
-            <View style={styles.signOutIcon}>
-              <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            <Ionicons name="add" size={16} color={C.amberDeep} />
+            <Text style={styles.addChildPillText}>Add Child</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.card}>
+          {children.map((child, index) => {
+            const isChildActive = child.id === activeChildId;
+            const childActiveTuition = activeTuitions.find(
+              (t) => t.childId === child.id && t.status === "ACTIVE",
+            );
+
+            return (
+              <TouchableOpacity
+                key={child.id}
+                activeOpacity={0.75}
+                onPress={() => {
+                  setActiveChildId(child.id);
+                  router.push("/(tabs)/tuition");
+                }}
+                style={[
+                  styles.childRow,
+                  index < children.length - 1 && styles.rowBorderBottom,
+                  isChildActive && styles.childActive,
+                ]}
+              >
+                <View style={styles.childAvatarWrap}>
+                  <Image
+                    source={{ uri: child.avatar }}
+                    style={styles.childAvatar}
+                  />
+                  {isChildActive && (
+                    <View style={styles.activeChildIndicator} />
+                  )}
+                </View>
+
+                <View style={styles.childInfo}>
+                  <View style={styles.childNameRow}>
+                    <Text style={styles.childName}>{child.name}</Text>
+                    {isChildActive && (
+                      <View style={styles.selectedPill}>
+                        <Text style={styles.selectedPillText}>Active</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.childGrade}>
+                    {child.grade} · {child.school}
+                  </Text>
+
+                  <View style={styles.childSubjectsRow}>
+                    {child.subjects.slice(0, 3).map((sub, i) => (
+                      <View key={i} style={styles.subjectChip}>
+                        <Text style={styles.subjectChipText}>{sub}</Text>
+                      </View>
+                    ))}
+                    {childActiveTuition && (
+                      <View style={styles.tuitionStatusChip}>
+                        <View style={styles.tuitionActiveDot} />
+                        <Text style={styles.tuitionStatusText}>
+                          {childActiveTuition.teacherName.split(" ")[0]} Sir
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                <Ionicons name="chevron-forward" size={18} color={C.faint} />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* ── LEARNING & TUITION MANAGEMENT ── */}
+        <Text style={[styles.sectionTitle, styles.sectionGap]}>
+          Learning & Tuition
+        </Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={[styles.menuRow, styles.rowBorderBottom]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/(tabs)/tuition")}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: C.amberTint }]}>
+              <Ionicons name="school-outline" size={20} color={C.amberDeep} />
             </View>
-            <Text style={styles.signOutText}>Sign Out</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>My Home Tuition Hub</Text>
+              <Text style={styles.menuSub}>
+                Manage active tutors, schedule & classes
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.faint} />
           </TouchableOpacity>
 
-          <Text style={styles.versionText}>BookMySession • v1.0.4</Text>
+          <TouchableOpacity
+            style={[styles.menuRow, styles.rowBorderBottom]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/(tabs)/progress")}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: C.indigoTint }]}>
+              <Ionicons name="analytics-outline" size={20} color={C.indigo} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>Academic Progress & Tests</Text>
+              <Text style={styles.menuSub}>
+                Test scores, syllabus tracking & analytics
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.faint} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuRow, styles.rowBorderBottom]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/billing")}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: C.greenTint }]}>
+              <Ionicons name="receipt-outline" size={20} color={C.green} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>Monthly Bills & Invoices</Text>
+              <Text style={styles.menuSub}>
+                Tuition fee receipts & monthly statements
+              </Text>
+            </View>
+            {hasDueInvoice ? (
+              <View style={styles.dueBadge}>
+                <Text style={styles.dueBadgeText}>DUE</Text>
+              </View>
+            ) : (
+              <View style={styles.paidBadge}>
+                <Text style={styles.paidBadgeText}>PAID</Text>
+              </View>
+            )}
+            <Ionicons name="chevron-forward" size={18} color={C.faint} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuRow}
+            activeOpacity={0.7}
+            onPress={() => router.push("/favorites")}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: C.redTint }]}>
+              <Ionicons name="heart-outline" size={20} color={C.red} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>Saved Favorite Teachers</Text>
+              <Text style={styles.menuSub}>Shortlisted tutors for booking</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.faint} />
+          </TouchableOpacity>
         </View>
+
+        {/* ── ACCOUNT & PREFERENCES ── */}
+        <Text style={[styles.sectionTitle, styles.sectionGap]}>
+          Account & Preferences
+        </Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={[styles.menuRow, styles.rowBorderBottom]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/profile/personal-details")}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: "#F1F5F9" }]}>
+              <Ionicons name="person-outline" size={20} color={C.ink} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>Personal & Contact Details</Text>
+              <Text style={styles.menuSub}>Name, phone number & email</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.faint} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuRow, styles.rowBorderBottom]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/profile/addresses")}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: C.orangeTint }]}>
+              <Ionicons name="location-outline" size={20} color={C.amberDeep} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>Saved Home Addresses</Text>
+              <Text style={styles.menuSub}>
+                {addresses.length} verified location
+                {addresses.length > 1 ? "s" : ""}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.faint} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuRow, styles.rowBorderBottom]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/profile/payments")}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: C.blueTint }]}>
+              <Ionicons name="card-outline" size={20} color={C.blue} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>Payment Methods</Text>
+              <Text style={styles.menuSub}>
+                {paymentMethods.length} saved (UPI & Cards)
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.faint} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuRow, styles.rowBorderBottom]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/profile/notification-settings")}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: C.purpleTint }]}>
+              <Ionicons
+                name="notifications-outline"
+                size={20}
+                color={C.purple}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>Notifications & Alerts</Text>
+              <Text style={styles.menuSub}>
+                Session reminders & billing alerts
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.faint} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuRow, styles.rowBorderBottom]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/profile/help")}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: C.cyanTint }]}>
+              <Ionicons name="help-buoy-outline" size={20} color={C.cyan} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>Help & Parent Support</Text>
+              <Text style={styles.menuSub}>
+                FAQs, WhatsApp assistance & guidelines
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.faint} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuRow}
+            activeOpacity={0.7}
+            onPress={() => router.push("/profile/report-teacher")}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: C.redTint }]}>
+              <Ionicons name="flag-outline" size={20} color={C.red} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuLabel, { color: C.red }]}>
+                Report an Issue
+              </Text>
+              <Text style={styles.menuSub}>
+                Feedback on teacher conduct or safety
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.faint} />
+          </TouchableOpacity>
+        </View>
+
+        {/* ── APP INFO FOOTER ── */}
+        <View style={styles.appInfoContainer}>
+          <Text style={styles.appInfoBrand}>BookMySession</Text>
+          <Text style={styles.appInfoText}>
+            Version 2.0 · Home Tutoring Made Safe & Seamless
+          </Text>
+        </View>
+
+        {/* ── LOGOUT BUTTON ── */}
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          activeOpacity={0.8}
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out-outline" size={18} color={C.red} />
+          <Text style={styles.logoutText}>Log Out from Account</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F5F6FA" },
+const softShadow = Platform.select({
+  ios: {
+    shadowColor: "#0D1B2A",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+  },
+  android: { elevation: 2 },
+});
 
-  // ── Hero ──
-  hero: {
-    paddingTop: 16,
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: C.bg,
+  },
+  scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 28,
-    borderBottomLeftRadius: 36,
-    borderBottomRightRadius: 36,
-    overflow: "hidden",
+    paddingBottom: 120,
+  },
+
+  /* ── Header ── */
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "android" ? 28 : 12,
+    paddingBottom: 16,
+  },
+  title: {
+    fontFamily: fonts.bold,
+    fontSize: 28,
+    color: C.ink,
+    letterSpacing: -0.6,
+  },
+  subtitle: {
+    fontFamily: fonts.medium,
+    fontSize: 14,
+    color: C.muted,
+    marginTop: 2,
+  },
+  headerActionBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: C.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.line,
+    ...softShadow,
+  },
+
+  /* ── Profile Spotlight (Cardless Hero) ── */
+  profileSpotlight: {
+    backgroundColor: C.surface,
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 14,
+    ...softShadow,
+  },
+  profileTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  avatarWrap: {
     position: "relative",
   },
-  settingsBtn: {
+  avatar: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 2,
+    borderColor: C.amber,
+  },
+  verifiedIconWrap: {
     position: "absolute",
-    top: 18,
-    right: 20,
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    bottom: -2,
+    right: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: C.green,
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
+    borderWidth: 2,
+    borderColor: C.surface,
   },
-  heroBody: {
-    alignItems: "center",
-    marginTop: 8,
+  profileInfo: {
+    flex: 1,
   },
-  avatarWrapper: {
-    width: 104,
-    height: 104,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  avatarRing: {
-    position: "absolute",
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    borderWidth: 2.5,
-    borderColor: P.gold,
-    borderRightColor: "transparent",
-    borderBottomColor: "transparent",
-    transform: [{ rotate: "-45deg" }],
-  },
-  cameraBtn: {
-    position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: P.gold,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 3,
-    borderColor: P.navy,
-  },
-  heroName: {
-    fontSize: 22,
-    fontFamily: fonts.extraBold,
-    color: "#FFFFFF",
-    letterSpacing: 0.2,
-  },
-  heroPhone: {
-    fontSize: 13,
-    fontFamily: fonts.medium,
-    color: "rgba(255,255,255,0.55)",
-    marginTop: 4,
-  },
-  rankPill: {
+  statusBadgeRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(232,168,56,0.18)",
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "rgba(232,168,56,0.3)",
+    gap: 6,
+    marginBottom: 4,
   },
-  rankText: {
-    fontSize: 10,
-    fontFamily: fonts.extraBold,
-    color: P.gold,
-    letterSpacing: 1.2,
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: C.greenTint,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  verifiedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: C.green,
+  },
+  verifiedBadgeText: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    color: C.green,
+  },
+  locationBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: C.track,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  locationText: {
+    fontSize: 11,
+    fontFamily: fonts.medium,
+    color: C.muted,
+  },
+  userName: {
+    fontSize: 19,
+    fontFamily: fonts.bold,
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
+  userContact: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: C.muted,
+    marginTop: 2,
   },
 
-  // ── Stats ──
-  statsBar: {
+  /* Action Buttons in Spotlight */
+  profileActionRow: {
     flexDirection: "row",
-    marginTop: 22,
-    backgroundColor: "rgba(255,255,255,0.09)",
-    borderRadius: 20,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    justifyContent: "space-around",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: C.line,
   },
-  statItem: { alignItems: "center" },
-  statVal: {
-    fontSize: 20,
-    fontFamily: fonts.extraBold,
-    color: "#FFFFFF",
+  editProfileBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: C.track,
+    paddingVertical: 9,
+    borderRadius: 12,
   },
-  statLab: {
-    fontSize: 9,
+  editProfileBtnText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 13,
+    color: C.ink,
+  },
+  addressPillBtn: {
+    flex: 1.2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: C.amberTint,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
+  addressPillBtnText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 13,
+    color: C.amberDeep,
+  },
+
+  /* ── Card (Progress.tsx styling) ── */
+  card: {
+    backgroundColor: C.surface,
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 14,
+    ...softShadow,
+  },
+
+  /* ── Stats Row ── */
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statNumber: {
     fontFamily: fonts.bold,
-    color: "rgba(255,255,255,0.45)",
+    fontSize: 20,
+    color: C.ink,
+    letterSpacing: -0.4,
+  },
+  statLabel: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    color: C.muted,
     marginTop: 3,
-    letterSpacing: 1.2,
+    textAlign: "center",
   },
   statDivider: {
     width: 1,
-    height: "60%",
-    backgroundColor: "rgba(255,255,255,0.12)",
-    alignSelf: "center",
+    height: 32,
+    backgroundColor: C.line,
   },
 
-  // ── Content ──
-  content: { paddingHorizontal: 18, paddingTop: 20 },
-
-  // ── Completion ──
-  completionContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
-      },
-      android: { elevation: 2 },
-    }),
-  },
-  completionHeader: {
+  /* ── Section Header ── */
+  sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginTop: 10,
+    marginBottom: 12,
   },
-  completionLabel: {
-    fontSize: 13,
-    fontFamily: fonts.semiBold,
-    color: "#374151",
+  sectionTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 18,
+    color: C.ink,
+    letterSpacing: -0.3,
   },
-  completionPct: {
-    fontSize: 13,
-    fontFamily: fonts.extraBold,
-    color: P.gold,
+  sectionGap: {
+    marginTop: 14,
+    marginBottom: 12,
   },
-  completionBar: {
-    height: 6,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 99,
-    overflow: "hidden",
+  addChildPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: C.amberTint,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
-  completionFill: {
-    height: "100%",
-    backgroundColor: P.gold,
-    borderRadius: 99,
+  addChildPillText: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: C.amberDeep,
   },
 
-  // ── Menu Groups ──
-  menuGroup: { marginBottom: 18 },
-  menuGroupTitle: {
+  /* ── Children List Rows ── */
+  childRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    gap: 12,
+  },
+  childActive:{
+    backgroundColor: C.amberTint,
+    borderLeftWidth: 3,
+    borderLeftColor: C.amber,
+    paddingLeft: 5,
+  },
+  rowBorderBottom: {
+    borderBottomWidth: 1,
+    borderBottomColor: C.line,
+  },
+  childAvatarWrap: {
+    position: "relative",
+  },
+  childAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: C.line,
+  },
+  activeChildIndicator: {
+    position: "absolute",
+    bottom: -1,
+    right: -1,
+    width: 13,
+    height: 13,
+    borderRadius: 6.5,
+    backgroundColor: C.amber,
+    borderWidth: 2,
+    borderColor: C.surface,
+  },
+  childInfo: {
+    flex: 1,
+  },
+  childNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  childName: {
+    fontSize: 15,
+    fontFamily: fonts.bold,
+    color: C.ink,
+  },
+  selectedPill: {
+    backgroundColor: C.amberTint,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  selectedPillText: {
+    fontSize: 10,
+    fontFamily: fonts.bold,
+    color: C.amberDeep,
+  },
+  childGrade: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: C.muted,
+    marginTop: 2,
+  },
+  childSubjectsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 6,
+  },
+  subjectChip: {
+    backgroundColor: C.track,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  subjectChipText: {
     fontSize: 11,
-    fontFamily: fonts.extraBold,
-    color: P.muted,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    marginBottom: 10,
-    marginLeft: 4,
+    fontFamily: fonts.medium,
+    color: C.ink,
   },
-  menuCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    overflow: "hidden",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
-      },
-      android: { elevation: 2 },
-    }),
+  tuitionStatusChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: C.greenTint,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
+  tuitionActiveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: C.green,
+  },
+  tuitionStatusText: {
+    fontSize: 11,
+    fontFamily: fonts.semiBold,
+    color: C.green,
+  },
+
+  /* ── Menu Rows ── */
   menuRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     gap: 14,
   },
-  menuIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: "center",
+  menuIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center",
-    flexShrink: 0,
+    justifyContent: "center",
   },
-  menuRowContent: { flex: 1 },
   menuLabel: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: fonts.bold,
-    color: "#1F2937",
+    color: C.ink,
   },
-  menuSublabel: {
+  menuSub: {
     fontSize: 12,
-    fontFamily: fonts.medium,
-    color: "#9CA3AF",
+    fontFamily: fonts.regular,
+    color: C.muted,
     marginTop: 2,
   },
-  menuDivider: {
-    height: 1,
-    backgroundColor: "#F3F4F6",
-    marginLeft: 74,
+  dueBadge: {
+    backgroundColor: C.redTint,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginRight: 4,
   },
-  chevronBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "#F9FAFB",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  badgePill: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "#EF4444",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 6,
-  },
-  badgeText: {
-    fontSize: 11,
+  dueBadgeText: {
+    fontSize: 10,
     fontFamily: fonts.bold,
-    color: "#FFFFFF",
+    color: C.red,
+  },
+  paidBadge: {
+    backgroundColor: C.greenTint,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginRight: 4,
+  },
+  paidBadgeText: {
+    fontSize: 10,
+    fontFamily: fonts.bold,
+    color: C.green,
   },
 
-  // ── Sign Out ──
-  signOutBtn: {
+  /* ── App Info ── */
+  appInfoContainer: {
+    alignItems: "center",
+    marginTop: 18,
+    marginBottom: 12,
+  },
+  appInfoBrand: {
+    fontSize: 14,
+    fontFamily: fonts.bold,
+    color: C.ink,
+  },
+  appInfoText: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: C.faint,
+    marginTop: 2,
+  },
+
+  /* ── Logout Button ── */
+  logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 28,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 3 },
-      },
-      android: { elevation: 2 },
-    }),
-  },
-  signOutIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: "rgba(239,68,68,0.1)",
     justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: C.redTint,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    borderRadius: 16,
+    paddingVertical: 14,
+    marginTop: 6,
+    marginBottom: 40,
+    gap: 8,
   },
-  signOutText: {
-    fontSize: 15,
+  logoutText: {
+    fontSize: 14,
     fontFamily: fonts.bold,
-    color: "#EF4444",
-    flex: 1,
-  },
-
-  versionText: {
-    textAlign: "center",
-    fontSize: 11,
-    fontFamily: fonts.medium,
-    color: "#D1D5DB",
-    marginBottom: 4,
+    color: C.red,
   },
 });

@@ -1,12 +1,6 @@
 import React, { useEffect } from "react";
 import { Stack } from "expo-router";
-import {
-  View,
-  ActivityIndicator,
-  StatusBar,
-  Text,
-  TextInput,
-} from "react-native";
+import { View, ActivityIndicator, StatusBar } from "react-native";
 import {
   useFonts,
   Manrope_400Regular,
@@ -43,23 +37,6 @@ export default function RootLayout() {
     hydrateUser();
   }, [hydrateUser]);
 
-  useEffect(() => {
-    const textAny = Text as any;
-    const inputAny = TextInput as any;
-
-    textAny.defaultProps = textAny.defaultProps || {};
-    inputAny.defaultProps = inputAny.defaultProps || {};
-
-    textAny.defaultProps.style = [
-      textAny.defaultProps.style,
-      { fontFamily: "Manrope_400Regular" },
-    ];
-    inputAny.defaultProps.style = [
-      inputAny.defaultProps.style,
-      { fontFamily: "Manrope_400Regular" },
-    ];
-  }, []);
-
   if (!fontsLoaded) {
     return (
       <View
@@ -86,119 +63,38 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="auth/login"
-          options={{
-            title: "Login",
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="auth/verify-otp"
-          options={{
-            title: "Verify OTP",
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="(tabs)"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="teacher/[id]"
-          options={{
-            title: "Teacher Profile",
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="book-session"
-          options={{
-            title: "Book Session",
-          }}
-        />
-        <Stack.Screen
-          name="payment"
-          options={{
-            title: "Checkout & Payment",
-          }}
-        />
-        <Stack.Screen
-          name="booking-confirmation"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="booking/[id]"
-          options={{
-            title: "Booking Details",
-          }}
-        />
-        <Stack.Screen
-          name="ai-results"
-          options={{
-            title: "AI Recommendations",
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="student-profile-setup"
-          options={{
-            title: "Profile Setup",
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="notifications"
-          options={{
-            title: "Notifications",
-          }}
-        />
-        <Stack.Screen
-          name="learning-progress"
-          options={{
-            title: "Learning Progress",
-          }}
-        />
-        <Stack.Screen
-          name="profile"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="demo/request"
-          options={{
-            title: "Book Free Demo",
-          }}
-        />
-        <Stack.Screen
-          name="demo/[id]"
-          options={{
-            title: "Demo Details",
-          }}
-        />
-        <Stack.Screen
-          name="demo/decision"
-          options={{
-            title: "Post-Demo Choice",
-          }}
-        />
-        <Stack.Screen
-          name="select-package"
-          options={{
-            title: "Select Package",
-          }}
-        />
-        <Stack.Screen
-          name="rate-session"
-          options={{
-            title: "Rate Your Session",
-          }}
-        />
+        <Stack.Screen name="auth/account-type" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/verify-otp" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="parent/add-child" options={{ headerShown: false }} />
+        <Stack.Screen name="teacher/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="teacher/replace-teacher" options={{ headerShown: false }} />
+        <Stack.Screen name="teacher/reviews" options={{ headerShown: false }} />
+        <Stack.Screen name="demo/request-demo" options={{ headerShown: false }} />
+        <Stack.Screen name="demo/assign-teacher" options={{ headerShown: false }} />
+        <Stack.Screen name="tuition/attendance" options={{ headerShown: false }} />
+        <Stack.Screen name="tuition/cancel-tuition" options={{ headerShown: false }} />
+        <Stack.Screen name="billing/index" options={{ headerShown: false }} />
+        <Stack.Screen name="billing/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="book-session" options={{ headerShown: false }} />
+        <Stack.Screen name="payment" options={{ headerShown: false }} />
+        <Stack.Screen name="booking-confirmation" options={{ headerShown: false }} />
+        <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="session/classroom" options={{ headerShown: false }} />
+        <Stack.Screen name="session/in-person" options={{ headerShown: false }} />
+        <Stack.Screen name="session/reschedule" options={{ headerShown: false }} />
+        <Stack.Screen name="session/cancel" options={{ headerShown: false }} />
+        <Stack.Screen name="messages/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="favorites" options={{ headerShown: false }} />
+        <Stack.Screen name="learning-progress" options={{ headerShown: false }} />
+        <Stack.Screen name="profile/payments" options={{ headerShown: false }} />
+        <Stack.Screen name="profile/payment-details" options={{ headerShown: false }} />
+        <Stack.Screen name="profile/addresses" options={{ headerShown: false }} />
+        <Stack.Screen name="profile/notification-settings" options={{ headerShown: false }} />
+        <Stack.Screen name="profile/report-teacher" options={{ headerShown: false }} />
+        <Stack.Screen name="rate-session" options={{ headerShown: false }} />
       </Stack>
     </SafeAreaProvider>
   );

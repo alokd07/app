@@ -1,7 +1,6 @@
 import React from "react";
-import { View, type StyleProp, type ViewStyle } from "react-native";
+import { View, Platform, type StyleProp, type ViewStyle } from "react-native";
 import { BlurView } from "expo-blur";
-import { NativeModulesProxy } from "expo-modules-core";
 
 type BlurTint =
   | "light"
@@ -24,8 +23,6 @@ type SafeBlurViewProps = {
   fallbackColor?: string;
 };
 
-const hasExpoBlur = Boolean((NativeModulesProxy as any)?.ExpoBlurView);
-
 export default function SafeBlurView({
   intensity = 30,
   tint = "default",
@@ -33,7 +30,7 @@ export default function SafeBlurView({
   children,
   fallbackColor = "rgba(2, 8, 23, 0.72)",
 }: SafeBlurViewProps) {
-  if (!hasExpoBlur) {
+  if (Platform.OS === "web") {
     return (
       <View style={[style, { backgroundColor: fallbackColor }]}>
         {children}

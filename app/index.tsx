@@ -315,20 +315,20 @@ MeshBackground.displayName = "MeshBackground";
 AbstractGeometry.displayName = "AbstractGeometry";
 
 // ─── Enhanced Particle System ───────────────────────────────────────────────
-const ParticleBackground = memo(() => {
-  const particles = Array.from({ length: 35 }, (_, i) => ({
-    id: i,
-    size: Math.random() * 4 + 1,
-    left: Math.random() * 100,
-    top: Math.random() * 100,
-    delay: Math.random() * 3,
-    duration: Math.random() * 4000 + 3000,
-    opacity: Math.random() * 0.5 + 0.2,
-  }));
+const PARTICLES = Array.from({ length: 25 }, (_, i) => ({
+  id: i,
+  size: (i % 4) + 1.5,
+  left: ((i * 19 + 7) % 92) + 4,
+  top: ((i * 23 + 11) % 92) + 4,
+  delay: (i % 6) * 0.35,
+  opacity: 0.3 + (i % 4) * 0.12,
+  isGold: i % 3 === 0,
+}));
 
+const ParticleBackground = memo(() => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {particles.map((p) => (
+      {PARTICLES.map((p) => (
         <Animated.View
           key={p.id}
           entering={FadeIn.delay(p.delay * 800)}
@@ -340,10 +340,9 @@ const ParticleBackground = memo(() => {
               left: `${p.left}%`,
               top: `${p.top}%`,
               opacity: p.opacity,
-              backgroundColor:
-                Math.random() > 0.7
-                  ? brand.colors.gold.light
-                  : "rgba(255, 255, 255, 0.6)",
+              backgroundColor: p.isGold
+                ? brand.colors.gold.light
+                : "rgba(255, 255, 255, 0.6)",
             },
           ]}
         />
@@ -557,15 +556,12 @@ BrandLogo.displayName = "BookMySessionLogo";
 const BrandLoader = memo(({ progress }: { progress: SharedValue<number> }) => {
   const [isReady, setIsReady] = useState(false);
 
-  useAnimatedReaction(
-    () => progress.value >= 1,
-    (ready, prevReady) => {
-      if (ready !== prevReady) {
-        runOnJS(setIsReady)(ready);
-      }
-    },
-    [progress],
-  );
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 3700);
+    return () => clearTimeout(timer);
+  }, []);
 
   const barStyle = useAnimatedStyle(() => {
     const widthPct = progress.value * 100;
@@ -619,7 +615,9 @@ export default function SplashScreen() {
     isTransitioning.current = true;
 
     if (Platform.OS !== "web") {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      try {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (_) {}
     }
 
     try {
@@ -656,7 +654,7 @@ export default function SplashScreen() {
     );
 
     const timer = setTimeout(() => {
-      runOnJS(handleNavigation)();
+      handleNavigation();
     }, 4200);
 
     return () => clearTimeout(timer);

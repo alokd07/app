@@ -16,7 +16,15 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import RazorpayCheckout from "react-native-razorpay";
+// Safely require native Razorpay so Expo Go does not crash on startup
+let RazorpayCheckout: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mod = require("react-native-razorpay");
+  RazorpayCheckout = mod?.default || mod;
+} catch {
+  // Native module not linked in Expo Go client
+}
 import { formatCurrency } from "../src/utils/helpers";
 import { API_CONFIG, RAZORPAY_CONFIG } from "../src/config/api";
 import apiClient from "../src/services/api";
@@ -153,15 +161,19 @@ export default function PaymentScreen() {
     }
 
     // 3. Dynamic require fallback for varied bundle imports
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const RazorpayModule = require("react-native-razorpay");
-    const RazorpayInstance = RazorpayModule.default || RazorpayModule;
-    if (RazorpayInstance && typeof RazorpayInstance.open === "function") {
-      return await RazorpayInstance.open(options);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const RazorpayModule = require("react-native-razorpay");
+      const RazorpayInstance = RazorpayModule.default || RazorpayModule;
+      if (RazorpayInstance && typeof RazorpayInstance.open === "function") {
+        return await RazorpayInstance.open(options);
+      }
+    } catch {
+      // Not available in Expo Go
     }
 
     throw new Error(
-      "Razorpay Native SDK module is not linked in this runtime. Run your app via native build (`bun run android` or `expo run:android`)."
+      "Razorpay Native SDK is not supported in Expo Go. Run your app via native build (`npx expo run:android`) or use a development build."
     );
   };
 

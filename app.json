@@ -7,12 +7,6 @@
     "icon": "./assets/images/Logo.png",
     "scheme": "bookmysession",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/images/Logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#020817"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bookmysession.app",
@@ -44,7 +38,14 @@
       "expo-web-browser",
       "@react-native-community/datetimepicker",
       "expo-image",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/Logo.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#020817"
+        }
+      ],
       "expo-status-bar"
     ],
     "experiments": {

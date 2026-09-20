@@ -1,386 +1,105 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
-  ActivityIndicator,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { fonts } from "@/src/theme/colors";
-import apiClient from "@/src/services/api";
-import { API_CONFIG } from "@/src/config/api";
-
-type Transaction = {
-  id: string;
-  title: string;
-  date: string;
-  amount: string;
-  status: string;
-  icon: string;
-  color: string;
-};
-
-function TransactionCard({ item }: { item: Transaction }) {
-  const isRefunded = item.status === "Refunded";
-  return (
-    <View style={styles.txCard}>
-      <View style={[styles.txIcon, { backgroundColor: `${item.color}18` }]}>
-        <Ionicons name={item.icon as any} size={20} color={item.color} />
-      </View>
-      <View style={styles.txContent}>
-        <Text style={styles.txTitle}>{item.title}</Text>
-        <Text style={styles.txDate}>{item.date}</Text>
-      </View>
-      <View style={{ alignItems: "flex-end" }}>
-        <Text style={[styles.txAmount, isRefunded && styles.txAmountRefunded]}>
-          {isRefunded ? `-${item.amount}` : item.amount}
-        </Text>
-        <View style={[styles.txBadge, isRefunded ? styles.txBadgeRefunded : styles.txBadgeSuccess]}>
-          <Text style={[styles.txBadgeText, isRefunded ? { color: "#B45309" } : { color: "#065F46" }]}>
-            {item.status}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
+import { appColors, fonts } from "../../src/theme/colors";
+import { useUserStore } from "../../src/store/userStore";
+import { useBookingStore } from "../../src/store/bookingStore";
 
 export default function PaymentsScreen() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        setLoading(true);
-        const res = await apiClient.get(API_CONFIG.ENDPOINTS.PAYMENT_HISTORY);
-        if (res.data?.success && Array.isArray(res.data.data)) {
-          setTransactions(res.data.data);
-        }
-      } catch (e) {
-        console.error("Failed to fetch payment history:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchHistory();
-  }, []);
-
-  const totalSpent = transactions
-    .filter((t) => t.status !== "Refunded")
-    .reduce((sum, t) => {
-      const num = parseInt(String(t.amount).replace(/[^0-9]/g, ""), 10);
-      return sum + (isNaN(num) ? 0 : num);
-    }, 0);
-
-  const totalRefunds = transactions
-    .filter((t) => t.status === "Refunded")
-    .reduce((sum, t) => {
-      const num = parseInt(String(t.amount).replace(/[^0-9]/g, ""), 10);
-      return sum + (isNaN(num) ? 0 : num);
-    }, 0);
+  const { paymentMethods } = useUserStore();
+  const { sessions } = useBookingStore();
 
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={20} color="#1F2937" />
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={20} color="#0D1B2A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payments & Invoices</Text>
+        <Text style={styles.headerTitle}>Payments & Receipts</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Balance Card */}
-        <View style={styles.balanceCardWrap}>
-          <LinearGradient
-            colors={["#020817", "#1A3050"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.balanceCard}
-          >
-            <View style={styles.balanceRow}>
-              <View>
-                <Text style={styles.balanceLabel}>Total Spent</Text>
-                <Text style={styles.balanceAmount}>₹{totalSpent.toLocaleString()}</Text>
-                <Text style={styles.balanceSub}>Across {transactions.filter((t) => t.status !== "Refunded").length} sessions</Text>
-              </View>
-              <View style={styles.walletIcon}>
-                <Ionicons name="wallet" size={28} color="#E8A838" />
-              </View>
-            </View>
-            <View style={styles.balanceDivider} />
-            <View style={styles.balanceStats}>
-              <View>
-                <Text style={styles.balStatLab}>Sessions</Text>
-                <Text style={styles.balStatVal}>{transactions.length}</Text>
-              </View>
-              <View style={styles.balStatDivider} />
-              <View>
-                <Text style={styles.balStatLab}>Pending</Text>
-                <Text style={styles.balStatVal}>₹0</Text>
-              </View>
-              <View style={styles.balStatDivider} />
-              <View>
-                <Text style={styles.balStatLab}>Refunds</Text>
-                <Text style={styles.balStatVal}>₹{totalRefunds.toLocaleString()}</Text>
-              </View>
-            </View>
-          </LinearGradient>
-        </View>
-
-        {/* Transactions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Transactions</Text>
-          {loading ? (
-            <ActivityIndicator style={{ marginVertical: 24 }} color="#6366F1" />
-          ) : transactions.length === 0 ? (
-            <View style={{ alignItems: "center", paddingVertical: 32 }}>
-              <Ionicons name="receipt-outline" size={40} color="#D1D5DB" />
-              <Text style={{ color: "#9CA3AF", marginTop: 12, fontFamily: fonts.medium }}>
-                No transactions yet
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.txList}>
-              {transactions.map((item, index) => (
-                <View key={item.id}>
-                  <TransactionCard item={item} />
-                  {index < transactions.length - 1 && (
-                    <View style={styles.txDivider} />
-                  )}
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Saved Cards */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Saved Payment Methods</Text>
-          <TouchableOpacity style={styles.addCardBtn} activeOpacity={0.7}>
-            <View style={styles.addCardIcon}>
-              <Ionicons name="add" size={22} color="#6366F1" />
-            </View>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+        {/* Saved Methods */}
+        <Text style={styles.sectionTitle}>Saved Payment Methods</Text>
+        {paymentMethods.map((pm) => (
+          <View key={pm.id} style={styles.pmCard}>
+            <Ionicons name={pm.icon as any} size={24} color="#0D1B2A" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.addCardTitle}>Add New Card</Text>
-              <Text style={styles.addCardSubtitle}>Credit, debit or UPI</Text>
+              <Text style={styles.pmLabel}>{pm.label}</Text>
+              <Text style={styles.pmDetails}>{pm.details}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
+            {pm.isDefault && (
+              <View style={styles.defaultPill}>
+                <Text style={styles.defaultText}>DEFAULT</Text>
+              </View>
+            )}
+          </View>
+        ))}
+
+        {/* Transaction History */}
+        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Recent Transactions</Text>
+        {sessions.map((sess) => (
+          <TouchableOpacity
+            key={sess.id}
+            style={styles.txCard}
+            onPress={() =>
+              router.push({
+                pathname: "/profile/payment-details",
+                params: { sessionId: sess.id },
+              })
+            }
+          >
+            <View style={styles.txIconCircle}>
+              <Ionicons name="receipt-outline" size={20} color="#059669" />
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={styles.txTitle}>{sess.subject} Lesson</Text>
+              <Text style={styles.txSub}>
+                Tutor: {sess.teacherName} · {sess.date}
+              </Text>
+              <Text style={styles.txIdText}>TXN ID: TXN-{sess.id}</Text>
+            </View>
+
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={styles.txAmount}>₹{sess.amountPaid}</Text>
+              <Text style={styles.txStatus}>PAID</Text>
+            </View>
           </TouchableOpacity>
-        </View>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F5F6FA" },
+  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 12, backgroundColor: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: "#E2E8F0" },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center" },
+  headerTitle: { fontSize: 18, fontFamily: fonts.bold, color: "#0D1B2A" },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#F9FAFB",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontFamily: fonts.bold,
-    color: "#1F2937",
-  },
+  sectionTitle: { fontSize: 16, fontFamily: fonts.bold, color: "#0D1B2A", marginBottom: 12 },
+  pmCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FFFFFF", padding: 14, borderRadius: 14, marginBottom: 10, borderWidth: 1, borderColor: "#E2E8F0" },
+  pmLabel: { fontSize: 14, fontFamily: fonts.bold, color: "#0D1B2A" },
+  pmDetails: { fontSize: 12, fontFamily: fonts.regular, color: "#64748B", marginTop: 2 },
+  defaultPill: { backgroundColor: "#ECFDF5", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  defaultText: { fontSize: 9, fontFamily: fonts.bold, color: "#059669" },
 
-  scroll: { paddingBottom: 60 },
-
-  // Balance Card
-  balanceCardWrap: { padding: 18, paddingBottom: 6 },
-  balanceCard: {
-    borderRadius: 24,
-    padding: 22,
-  },
-  balanceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  balanceLabel: {
-    fontSize: 12,
-    fontFamily: fonts.semiBold,
-    color: "rgba(255,255,255,0.5)",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-  },
-  balanceAmount: {
-    fontSize: 34,
-    fontFamily: fonts.extraBold,
-    color: "#FFFFFF",
-    marginTop: 4,
-  },
-  balanceSub: {
-    fontSize: 12,
-    fontFamily: fonts.medium,
-    color: "rgba(255,255,255,0.4)",
-    marginTop: 2,
-  },
-  walletIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: "rgba(232,168,56,0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  balanceDivider: {
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    marginVertical: 18,
-  },
-  balanceStats: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-  },
-  balStatLab: {
-    fontSize: 10,
-    fontFamily: fonts.semiBold,
-    color: "rgba(255,255,255,0.4)",
-    textAlign: "center",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-  },
-  balStatVal: {
-    fontSize: 18,
-    fontFamily: fonts.extraBold,
-    color: "#FFFFFF",
-    textAlign: "center",
-    marginTop: 4,
-  },
-  balStatDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: "rgba(255,255,255,0.1)",
-  },
-
-  // Sections
-  section: { paddingHorizontal: 18, marginTop: 18 },
-  sectionTitle: {
-    fontSize: 11,
-    fontFamily: fonts.extraBold,
-    color: "#9CA3AF",
-    textTransform: "uppercase",
-    letterSpacing: 1.2,
-    marginBottom: 10,
-  },
-
-  // Transactions
-  txList: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    overflow: "hidden",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
-      },
-      android: { elevation: 2 },
-    }),
-  },
-  txCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    padding: 16,
-  },
-  txIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  txContent: { flex: 1 },
-  txTitle: {
-    fontSize: 14,
-    fontFamily: fonts.bold,
-    color: "#1F2937",
-  },
-  txDate: {
-    fontSize: 12,
-    fontFamily: fonts.medium,
-    color: "#9CA3AF",
-    marginTop: 2,
-  },
-  txAmount: {
-    fontSize: 15,
-    fontFamily: fonts.extraBold,
-    color: "#1F2937",
-  },
-  txAmountRefunded: { color: "#D97706" },
-  txBadge: {
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  txBadgeSuccess: { backgroundColor: "rgba(16,185,129,0.1)" },
-  txBadgeRefunded: { backgroundColor: "rgba(245,158,11,0.1)" },
-  txBadgeText: { fontSize: 11, fontFamily: fonts.bold },
-  txDivider: { height: 1, backgroundColor: "#F3F4F6", marginLeft: 74 },
-
-  // Add card
-  addCardBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    borderStyle: "dashed",
-  },
-  addCardIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: "rgba(99,102,241,0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  addCardTitle: {
-    fontSize: 15,
-    fontFamily: fonts.bold,
-    color: "#1F2937",
-  },
-  addCardSubtitle: {
-    fontSize: 12,
-    fontFamily: fonts.medium,
-    color: "#9CA3AF",
-    marginTop: 2,
-  },
+  txCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FFFFFF", padding: 14, borderRadius: 14, marginBottom: 10, borderWidth: 1, borderColor: "#E2E8F0" },
+  txIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#ECFDF5", alignItems: "center", justifyContent: "center" },
+  txTitle: { fontSize: 14, fontFamily: fonts.bold, color: "#0D1B2A" },
+  txSub: { fontSize: 12, fontFamily: fonts.regular, color: "#64748B", marginTop: 2 },
+  txIdText: { fontSize: 10, fontFamily: fonts.regular, color: "#94A3B8", marginTop: 2 },
+  txAmount: { fontSize: 15, fontFamily: fonts.bold, color: "#0D1B2A" },
+  txStatus: { fontSize: 10, fontFamily: fonts.bold, color: "#059669", marginTop: 2 },
 });
